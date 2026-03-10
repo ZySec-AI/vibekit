@@ -1,4 +1,4 @@
-# Product Loop Plugin
+# vibekit
 
 A 4-command autonomous product development loop for Claude Code. Simulate customers, fix bugs, implement features, and ship — all from the command line.
 
@@ -21,13 +21,13 @@ Works with any web app that has a dev server and a GitHub remote.
 
 ```bash
 # In any project directory, open Claude Code and run:
-/plugin install github:YOUR_ORG/scalerisk-plugin
+/plugin install github:YOUR_ORG/vibekit
 ```
 
 Or add directly to `.claude/settings.json`:
 ```json
 {
-  "plugins": ["github:YOUR_ORG/scalerisk-plugin"]
+  "plugins": ["github:YOUR_ORG/vibekit"]
 }
 ```
 
@@ -164,10 +164,33 @@ Add to your project's `.claude/settings.json` to get live issue state printed at
 }
 ```
 
-And add `.claude/hooks/session-start.sh` to your repo (see the Scale Risk repo for the reference implementation).
+And add `.claude/hooks/session-start.sh` to your repo:
+
+```bash
+#!/bin/bash
+BRANCH="$(git branch --show-current 2>/dev/null)"
+echo "=== vibekit — Session Context === Branch: $BRANCH"
+if ! gh auth status &>/dev/null; then
+  echo "WARNING: gh not authenticated. Run 'gh auth login'. Then run /setup."
+  exit 0
+fi
+HIGHLIGHTS=$(gh issue list --search "Highlights Index" --state all --limit 1 --json number --jq '.[0].number // empty' 2>/dev/null)
+if [ -z "$HIGHLIGHTS" ]; then echo "NEW — run /setup first."; exit 0; fi
+BUG_COUNT=$(gh issue list --label "bug" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "?")
+ARCH_COUNT=$(gh issue list --label "arch" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "?")
+echo "Bugs open: $BUG_COUNT | Arch open: $ARCH_COUNT"
+gh issue list --label "bug,critical" --state open --limit 3 --json number,title --jq '.[] | "  CRITICAL #\(.number) \(.title)"' 2>/dev/null
+gh issue list --label "cycle" --state all --limit 1 --json title --jq '"Last cycle: \(.[0].title // "none")"' 2>/dev/null
+[ "$BUG_COUNT" -gt 0 ] 2>/dev/null && echo "NEXT: /simulate" || echo "NEXT: /build or /simulate"
+echo "================================="
+```
 
 ---
 
 ## Version
 
 1.0.0
+
+## License
+
+MIT
