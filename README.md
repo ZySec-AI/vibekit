@@ -43,8 +43,6 @@ Every bug is found by a simulated customer using your actual UI. Every fix is co
 
 ### Requirements
 
-Before installing, you need:
-
 | Tool | Purpose | Install |
 |------|---------|---------|
 | [Claude Code](https://claude.ai/code) | Runs all commands | `npm install -g @anthropic-ai/claude-code` |
@@ -54,13 +52,25 @@ Before installing, you need:
 
 ### Install the plugin
 
-Open Claude Code in your project directory and run:
+**Step 1 — Add vibekit as a marketplace (once per machine):**
 
-```
-/plugin install github:ZySec-AI/vibekit
+```bash
+claude plugin marketplace add ZySec-AI/vibekit --scope user
 ```
 
-That's it. All four commands are now available.
+**Step 2 — Install the plugin into your project:**
+
+```bash
+claude plugin install vibekit@ZySec-AI/vibekit
+```
+
+All four commands (`/setup`, `/simulate`, `/build`, `/launch`) are now available.
+
+> **Sharing with your team:** Each person runs these two commands once. Or add to your project's `.claude/settings.json`:
+> ```json
+> { "plugins": ["vibekit@ZySec-AI/vibekit"] }
+> ```
+> After adding the marketplace on their machine, the plugin installs automatically when they open Claude Code in the project.
 
 ---
 
