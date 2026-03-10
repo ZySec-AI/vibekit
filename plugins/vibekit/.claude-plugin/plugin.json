@@ -1,0 +1,9 @@
+{
+  "name": "vibekit",
+  "description": "Autonomous product development loop — /setup /simulate /build /launch. Simulate customers, fix bugs inline, implement features, and ship. Built by ZySec AI.",
+  "author": {
+    "name": "ZySec AI",
+    "email": "hello@zysec.ai",
+    "url": "https://zysec.ai"
+  }
+}
