@@ -50,45 +50,41 @@ Every bug is found by a simulated customer using your actual UI. Every fix is co
 | Git remote | Repo must have a GitHub remote | `git remote add origin <url>` |
 | Playwright MCP | Browser automation for `/simulate` and `/build` | See [Playwright MCP setup](#playwright-mcp-setup) |
 
-### Option A — Embed in your project (recommended for teams)
+### One-command install (recommended)
 
-Copy the commands into your repo's `.claude/commands/` directory. Every teammate who clones the repo gets the commands automatically — no separate install step.
+Run this from your project root:
 
 ```bash
-mkdir -p .claude/commands
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/setup.md    -o .claude/commands/setup.md
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/simulate.md -o .claude/commands/simulate.md
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/build.md    -o .claude/commands/build.md
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/launch.md   -o .claude/commands/launch.md
+curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/install.sh | bash
+```
+
+Installs `/setup`, `/simulate`, `/build`, `/launch` into `.claude/commands/`. Then commit so your whole team gets the commands automatically:
+
+```bash
 git add .claude/commands && git commit -m "chore: add vibekit commands"
 ```
 
-Open Claude Code in your project — `/setup`, `/simulate`, `/build`, `/launch` are immediately available.
-
-### Option B — Install globally (for personal use across all projects)
+### Install globally (personal use across all projects)
 
 ```bash
 mkdir -p ~/.claude/commands
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/setup.md    -o ~/.claude/commands/setup.md
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/simulate.md -o ~/.claude/commands/simulate.md
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/build.md    -o ~/.claude/commands/build.md
-curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/launch.md   -o ~/.claude/commands/launch.md
+curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/install.sh | bash -s -- --global
 ```
 
-Commands are now available in every Claude Code session on this machine.
+Commands are available in every Claude Code session on this machine.
 
-### Option C — Clone and copy
+### Clone and copy
 
 ```bash
 git clone git@github.com:ZySec-AI/vibekit.git
+cp vibekit/commands/*.md .claude/commands/     # into current project
+# or globally:
 cp vibekit/commands/*.md ~/.claude/commands/
-# or into your project:
-cp vibekit/commands/*.md your-project/.claude/commands/
 ```
 
 ### Keeping up to date
 
-Re-run the `curl` commands above, or pull and re-copy from the clone. Commands update instantly — no restart needed.
+Re-run the install command. Commands update instantly — no restart needed.
 
 ---
 
