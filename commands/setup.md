@@ -15,7 +15,7 @@ Bootstrap this project for the vibekit development loop. Run once when starting 
 
 ```bash
 claude --version    2>/dev/null || echo "MISSING: npm install -g @anthropic-ai/claude-code"
-gh --version        2>/dev/null || echo "MISSING: brew install gh"
+gh --version        2>/dev/null || echo "MISSING: https://cli.github.com — brew install gh (mac) / sudo apt install gh (linux)"
 gh auth status      2>/dev/null || echo "NOT AUTHENTICATED: gh auth login"
 git remote get-url origin 2>/dev/null || echo "NO REMOTE: git remote add origin <url>"
 ```
