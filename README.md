@@ -36,7 +36,7 @@ Built by [ZySec AI](https://zysec.ai).
 From your project root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash
 ```
 
 Then commit so your whole team gets the commands:
@@ -48,7 +48,7 @@ git add .claude/commands && git commit -m "chore: add vibekit commands"
 **Global install** (all projects on this machine):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/install.sh | bash -s -- --global
+curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash -s -- --global
 ```
 
 **Requirements:** [Claude Code](https://claude.ai/code) · [GitHub CLI](https://cli.github.com) (`gh auth login`) · [Playwright MCP](#playwright-mcp-setup)

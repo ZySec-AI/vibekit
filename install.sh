@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # vibekit installer — https://github.com/ZySec-AI/vibekit
-# Usage: curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash
 #
 # Installs /setup /simulate /build /launch into .claude/commands/ in the current directory.
 # Run this from your project root.
 
 set -e
 
-BASE="https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands"
+BASE="https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/commands"
 GLOBAL=false
 
 # Parse flags
