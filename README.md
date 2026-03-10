@@ -47,30 +47,48 @@ Every bug is found by a simulated customer using your actual UI. Every fix is co
 |------|---------|---------|
 | [Claude Code](https://claude.ai/code) | Runs all commands | `npm install -g @anthropic-ai/claude-code` |
 | [GitHub CLI](https://cli.github.com) | Issue tracking | `brew install gh` then `gh auth login` |
-| Git remote | Repo must be on GitHub | `git remote add origin <url>` |
+| Git remote | Repo must have a GitHub remote | `git remote add origin <url>` |
 | Playwright MCP | Browser automation for `/simulate` and `/build` | See [Playwright MCP setup](#playwright-mcp-setup) |
 
-### Install the plugin
+### Option A — Embed in your project (recommended for teams)
 
-**Step 1 — Add vibekit as a marketplace (once per machine):**
-
-```bash
-claude plugin marketplace add ZySec-AI/vibekit --scope user
-```
-
-**Step 2 — Install the plugin into your project:**
+Copy the commands into your repo's `.claude/commands/` directory. Every teammate who clones the repo gets the commands automatically — no separate install step.
 
 ```bash
-claude plugin install vibekit@ZySec-AI/vibekit
+mkdir -p .claude/commands
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/setup.md    -o .claude/commands/setup.md
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/simulate.md -o .claude/commands/simulate.md
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/build.md    -o .claude/commands/build.md
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/launch.md   -o .claude/commands/launch.md
+git add .claude/commands && git commit -m "chore: add vibekit commands"
 ```
 
-All four commands (`/setup`, `/simulate`, `/build`, `/launch`) are now available.
+Open Claude Code in your project — `/setup`, `/simulate`, `/build`, `/launch` are immediately available.
 
-> **Sharing with your team:** Each person runs these two commands once. Or add to your project's `.claude/settings.json`:
-> ```json
-> { "plugins": ["vibekit@ZySec-AI/vibekit"] }
-> ```
-> After adding the marketplace on their machine, the plugin installs automatically when they open Claude Code in the project.
+### Option B — Install globally (for personal use across all projects)
+
+```bash
+mkdir -p ~/.claude/commands
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/setup.md    -o ~/.claude/commands/setup.md
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/simulate.md -o ~/.claude/commands/simulate.md
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/build.md    -o ~/.claude/commands/build.md
+curl -sL https://raw.githubusercontent.com/ZySec-AI/vibekit/develop/commands/launch.md   -o ~/.claude/commands/launch.md
+```
+
+Commands are now available in every Claude Code session on this machine.
+
+### Option C — Clone and copy
+
+```bash
+git clone git@github.com:ZySec-AI/vibekit.git
+cp vibekit/commands/*.md ~/.claude/commands/
+# or into your project:
+cp vibekit/commands/*.md your-project/.claude/commands/
+```
+
+### Keeping up to date
+
+Re-run the `curl` commands above, or pull and re-copy from the clone. Commands update instantly — no restart needed.
 
 ---
 
