@@ -23,16 +23,15 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 if [ "$GLOBAL" = true ]; then
   DEST="$HOME/.claude/commands"
-else
-  # Detect project root (must have git)
-  if ! git rev-parse --show-toplevel &>/dev/null; then
-    echo "ERROR: Not inside a git repository."
-    echo "Run this from your project root (where .git lives)."
-    echo "Or install globally: curl -fsSL ... | bash -s -- --global"
-    exit 1
-  fi
+elif git rev-parse --show-toplevel &>/dev/null; then
   PROJECT_ROOT="$(git rev-parse --show-toplevel)"
   DEST="$PROJECT_ROOT/.claude/commands"
+else
+  # Not in a git repo — fall back to global install
+  echo "No git repo detected — installing globally to ~/.claude/commands"
+  echo "(To install into a specific project, cd into it first.)"
+  echo ""
+  DEST="$HOME/.claude/commands"
 fi
 
 mkdir -p "$DEST"
@@ -56,7 +55,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Done. 4 commands installed to: $DEST"
 echo ""
 echo "NEXT STEPS:"
-if [ "$GLOBAL" = false ]; then
+if [ "$DEST" != "$HOME/.claude/commands" ]; then
   echo "  1. Commit to share with your team:"
   echo "       git add .claude/commands && git commit -m \"chore: add vibekit commands\""
   echo ""
