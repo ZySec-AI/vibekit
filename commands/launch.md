@@ -1,13 +1,15 @@
 ---
-description: Gates on open bugs, generates all GTM artifacts, creates GitHub release, merges to main.
+description: Gates on open bugs, generates GTM artifacts, creates GitHub release, merges to main.
 argument-hint: [--version X.Y.Z] [--dry-run]
 model: sonnet
-allowed-tools: Agent, Bash(gh:*), Bash(git:*), Bash(pnpm:*), Read, Write, Edit, Glob, Grep
+allowed-tools: Agent, Bash(gh:*), Bash(git:*), Read, Write, Edit, Glob, Grep
 ---
 
 # /launch
 
-You are the release manager and GTM lead for a SaaS product. You gate on open bugs, generate all customer-facing artifacts, create a GitHub release, and merge to main. One command does the full release.
+You are the release manager. Gate on open bugs, generate all customer-facing artifacts, create a GitHub release, merge to main.
+
+Branch flow: `develop` → `main`. Feature branches deleted on merge.
 
 ## Arguments
 
@@ -15,83 +17,66 @@ You are the release manager and GTM lead for a SaaS product. You gate on open bu
 $ARGUMENTS
 ```
 
-Parse from `$ARGUMENTS`:
-- `--version X.Y.Z` — override the version tag (default: determine from latest tag or `v1.0.0`)
-- `--dry-run` — run all gates and generate all artifacts, but do NOT create the release or merge to main
+- `--version X.Y.Z` — override version tag (default: auto-increment from latest tag)
+- `--dry-run` — run all gates and generate artifacts, do NOT create release or merge
 
 ---
 
-## Prerequisites (hard fail if missing)
+## Prerequisites
 
 ```bash
-gh auth status || { echo "ERROR: Run 'gh auth login' first."; exit 1; }
-git remote get-url origin || { echo "ERROR: No git remote. Add one."; exit 1; }
+gh auth status || { echo "ERROR: gh auth login first."; exit 1; }
+git remote get-url origin || { echo "ERROR: No git remote."; exit 1; }
 ```
 
-Read `docs/PRODUCT.md` and `docs/HIGHLIGHTS.md` before generating any artifacts.
+Read `docs/PRODUCT.md` and `docs/HIGHLIGHTS.md` before generating any artifact.
 
 ---
 
 ## Phase 0 — Gate Check
 
-**All gates must pass. Any failure blocks the release.**
+All gates must pass. Any failure blocks the release.
 
 ### Gate 1 — No open critical or high bugs
 
 ```bash
-CRITICAL=$(gh issue list --label "bug,critical" --state open --limit 10 --json number,title)
-HIGH=$(gh issue list --label "bug,high" --state open --limit 10 --json number,title)
+gh issue list --label "bug,critical" --state open --limit 10 --json number,title
+gh issue list --label "bug,high"     --state open --limit 10 --json number,title
 ```
 
-If any open critical or high bug issues exist:
+If any exist:
 ```
-BLOCKED: Open bug issues must be resolved before launch.
-
-Critical bugs ([N]):
-  #[N] [title]
-
-High bugs ([N]):
-  #[N] [title]
-
-Resolution: Run /simulate to fix inline, or close issues with 'wontfix' label if intentionally skipping.
+BLOCKED: Resolve open bugs before launch.
+Critical: [N] — [list titles with issue numbers]
+High:     [N] — [list titles with issue numbers]
+Fix: Run /simulate, or close issues with 'wontfix' label if intentionally skipping.
 ```
 Exit. Do not proceed.
 
-### Gate 2 — No unresolved carry bugs
+### Gate 2 — Carry bugs (warning, not blocking)
 
 ```bash
 gh issue list --label "carry" --state open --limit 10 --json number,title
 ```
+If any: list them. They appear in release notes as known issues.
 
-If any carry bugs exist, list them. They do not block release but must be acknowledged:
-```
-WARNING: [N] carry bugs still open (bugs surviving 2+ cycles):
-  #[N] [title]
-
-These will be included in the release notes as known issues.
-Proceeding — carry bugs do not block launch.
-```
-
-### Gate 3 — Branch is clean and up to date
+### Gate 3 — Branch clean and current
 
 ```bash
 git status --short
 git fetch origin develop
 git log HEAD..origin/develop --oneline
 ```
+If uncommitted changes or behind remote: print diff and exit.
 
-If uncommitted changes or behind remote: print the diff and exit with error.
-
-### Gate 4 — HIGHLIGHTS.md exists and has content
+### Gate 4 — HIGHLIGHTS.md exists
 
 ```bash
 test -f docs/HIGHLIGHTS.md && wc -l docs/HIGHLIGHTS.md
 ```
+If missing or empty: warn (not blocking). GTM artifacts will be sparse.
 
-If missing or empty: warn but do not block. GTM artifacts will be sparse.
-
-### Gate check summary:
-
+Print gate summary:
 ```
 LAUNCH GATES
 ════════════════════════════════════════════════════════
@@ -99,200 +84,78 @@ Gate 1 — Critical/high bugs:  PASS (0 open)
 Gate 2 — Carry bugs:          [PASS | WARNING: N open]
 Gate 3 — Branch clean:        PASS
 Gate 4 — Highlights file:     [PASS | WARNING: empty]
-
-All blocking gates passed. Proceeding to artifact generation.
+All blocking gates passed. Proceeding.
 ════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Phase 1 — Determine Version
+## Phase 1 — Version
 
 ```bash
-LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+LATEST=$(git tag --sort=-version:refname | head -1)
 ```
 
-If `--version` was passed: use that value.
-If no tags exist: use `v1.0.0`.
-If tags exist: increment the patch version (e.g. `v1.0.2` → `v1.0.3`), or increment minor if `--minor` was passed.
+- `--version X.Y.Z` passed → use it
+- No tags → `v1.0.0`
+- Tags exist → increment patch (e.g. `v1.0.2` → `v1.0.3`)
 
 Print: `Release version: [version]`
 
 ---
 
-## Phase 2 — Generate GTM Artifacts
+## Phase 2 — GTM Artifacts
 
-Generate all four artifacts. They are written to `docs/`. If the file already exists, overwrite it entirely.
+Generate all four. Read `docs/PRODUCT.md` and `docs/HIGHLIGHTS.md` first.
+Every claim must be traceable to HIGHLIGHTS.md or PRODUCT.md — no invented proof points.
+Overwrite if file already exists.
 
-Read `docs/HIGHLIGHTS.md` and `docs/PRODUCT.md` before writing any artifact. All content must be grounded in observed simulation results — no invented claims.
+### docs/SALES-PLAY.md
 
-### 2a. SALES-PLAY.md
+Battlecard for account executives and sales engineers.
 
-A battlecard-style document for account executives and sales engineers.
+Sections:
+- **ICP Snapshot** — who we sell to (from PRODUCT.md), 3 bullets
+- **Opening Lines** — one killer opener per vertical defined in PRODUCT.md
+- **Discovery Questions** — 5–7 high-value questions based on product pain points
+- **Value Props by Role** — 3 bullets per major role, grounded in HIGHLIGHTS.md observations
+- **Objection Handling** — from simulation persona objections across cycles
+- **Competitive Positioning** — how we win vs. competitors named in PRODUCT.md (factual only)
+- **Demo Sequence** — from docs/DEMO-SEQUENCE.md or HIGHLIGHTS.md, ordered by what resonated
+- **Proof Points** — specific wow moments from HIGHLIGHTS.md (quote persona voice)
+- **Known Gaps** — honest list of open arch issues and carry bugs
 
-```markdown
-# Sales Play — Scale Risk [version]
-Generated: [date]
+### docs/PRODUCT-BROCHURE.md
 
-## ICP Snapshot
-[From PRODUCT.md — who we sell to, in 3 bullet points]
+Customer-facing capability overview. Benefit-led, no jargon.
 
-## Opening Line (by vertical)
-- **Financial Services (GCC):** "How many compliance frameworks are your team managing today — and how are they tracked?"
-- **Healthcare (US):** "When your auditor asks for HIPAA breach notification evidence, how long does it take to pull that together?"
-- **Government (KSA/UAE):** "Have you mapped your controls to NCA-ECC yet? It's now a mandatory baseline."
-- **Energy/Critical Infrastructure:** "IEC 62443 and ISO 27001 — do you have a single view of where your OT/IT controls overlap?"
+Sections:
+- **The Problem** — 1 paragraph in customer language, drawn from HIGHLIGHTS.md persona feedback
+- **Who It's For** — role tier descriptions, what each gets from the product
+- **Core Capabilities** — 4–6 capability groups with 3–5 benefit bullets each (from PRODUCT.md modules)
+- **How Customers Get Started** — onboarding overview, no professional services required
 
-## Discovery Questions
-[5–7 high-value discovery questions based on product context and simulation persona feedback]
+### docs/PRODUCT-DOCS.md
 
-## Value Propositions by Role
-### CISO (Economic Buyer)
-- [3 bullet points grounded in HIGHLIGHTS.md observations]
+Technical reference for evaluators.
 
-### GRC Manager (Champion)
-- [3 bullet points]
+Sections:
+- **Architecture Overview** — stack, auth, data model, tenant isolation (from PRODUCT.md)
+- **User Roles Reference** — table: Role | Tier | Primary Function | Key Modules
+- **Module Reference** — one section per major module detected in codebase/PRODUCT.md
+- **API & Integration** — webhooks, API keys, event types (if applicable)
+- **Security & Compliance** — isolation, audit log, RBAC, impersonation (if applicable)
+- **Configuration** — platform settings, tenant settings, environment
 
-### Security Analyst (Operator)
-- [3 bullet points]
+### docs/RELEASE-NOTES.md
 
-## Objection Handling
-[Pull from simulation persona objections across cycles. Format: Objection → Response]
+Factual changelog.
 
-## Competitive Positioning
-[From PRODUCT.md — how we win vs. Vanta, Drata, OneTrust, Archer — keep it factual]
-
-## Demo Sequence (from DEMO-SEQUENCE.md or HIGHLIGHTS.md)
-[The recommended screen order for this ICP, with the "why" for each step]
-
-## Proof Points (from simulation observations)
-[Specific wow moments observed — quote the persona voice from HIGHLIGHTS.md]
-
-## Known Gaps (honest)
-[Open arch issues and carry bugs that might come up in a deep evaluation]
-```
-
-### 2b. PRODUCT-BROCHURE.md
-
-A customer-facing capability overview. Professional, benefit-led, no jargon.
-
-```markdown
-# Scale Risk — Product Overview [version]
-
-## The Problem We Solve
-[1 paragraph — the pain, in customer language, drawn from persona feedback in HIGHLIGHTS.md]
-
-## Who It's For
-[Role tier descriptions — what each tier gets from the platform, in their language]
-
-## Core Capabilities
-
-### Risk Management
-[3–5 capability bullets with benefit framing]
-
-### Compliance & GRC
-[3–5 capability bullets]
-
-### Security Operations
-[3–5 capability bullets]
-
-### Vendor Risk
-[3–5 capability bullets]
-
-### Reporting & Board Visibility
-[3–5 capability bullets]
-
-## Regulatory Coverage
-[List frameworks — organized by geography. Pull from PRODUCT.md]
-
-## Built for Regulated Industries
-[Verticals served, compliance requirements addressed]
-
-## How Customers Get Started
-[Onboarding overview — quick-start, no professional services required, operational in days]
-```
-
-### 2c. PRODUCT-DOCS.md
-
-A functional reference for evaluators doing a technical deep-dive.
-
-```markdown
-# Scale Risk — Product Documentation [version]
-
-## Architecture Overview
-- Multi-tenant SaaS, cloud-hosted
-- Role-based access control: 12 named roles across 4 tiers
-- MongoDB backend, tenant-isolated at query layer
-- NextAuth.js authentication, Casbin RBAC enforcement
-- Event-driven architecture — all audit-relevant actions emit typed events
-
-## User Roles Reference
-[Table: Role | Tier | Primary Function | Key Modules]
-
-## Module Reference
-
-### Risk Register
-[What it is, key fields, how risks link to incidents/controls/vendors]
-
-### Incident Management
-[What it is, breach notification workflow, multi-jurisdiction regulatory timelines]
-
-### Compliance Frameworks
-[40+ templates, gap analysis, evidence linking, self-assessments]
-
-### Evidence Vault
-[Upload, multi-framework tagging, auditor export]
-
-### Vendor Risk
-[Vendor register, risk rating, linked solutions and risks]
-
-### Security Architecture
-[Architecture docs, diagram viewer, OT/IT/Cloud asset types]
-
-### SOC Operations
-[Analyst workflow, SIEM integration surface, alert management]
-
-### Reports & Dashboards
-[Role-appropriate dashboards, board-ready reports, regulatory deadline KPIs]
-
-## API & Integration Surface
-[Webhook outbound, Developer API keys inbound, event types supported]
-
-## Security & Compliance Properties
-[Tenant isolation, audit log, RBAC model, impersonation controls]
-
-## Configuration
-[Platform settings, tenant settings, framework configuration, file storage]
-```
-
-### 2d. RELEASE-NOTES.md
-
-A factual changelog for this version.
-
-```markdown
-# Release Notes — [version]
-Release date: [date]
-
-## What's New
-
-### Features
-[List significant features implemented since last release — pull from recent git log and closed arch issues]
-
-### Improvements
-[UX improvements, performance, content quality — pull from closed bug issues]
-
-### Bug Fixes
-[Pull from closed bug/sim issues — format: "[Severity] [module]: [description]"]
-
-## Compliance Framework Updates
-[Any new frameworks added or updated]
-
-## Known Issues
-[Open carry bugs and open arch issues — be transparent]
-
-## Upgrade Notes
-[Anything that changes behavior from prior version — none if first release]
-```
+Sections:
+- **What's New** — features from closed `[Arch]` issues since last tag (from `gh issue list`)
+- **Improvements** — UX/content improvements from closed `bug` issues
+- **Bug Fixes** — from closed `bug,sim` issues: `[Severity] [module]: [description]`
+- **Known Issues** — open carry bugs + open arch issues (transparent)
 
 ---
 
@@ -301,19 +164,16 @@ Release date: [date]
 ```bash
 git checkout develop
 git pull origin develop
-
-# Tag the release
 git tag -a [version] -m "Release [version]"
 git push origin [version]
 
-# Create GitHub release
 gh release create [version] \
-  --title "Scale Risk [version]" \
+  --title "v[version]" \
   --notes-file docs/RELEASE-NOTES.md \
   --target develop
 ```
 
-If `--dry-run`: print what would be created but do not run the above commands.
+If `--dry-run`: print what would be created, skip.
 
 ---
 
@@ -322,53 +182,43 @@ If `--dry-run`: print what would be created but do not run the above commands.
 ```bash
 git checkout main
 git pull origin main
-git merge develop --no-ff -m "Release [version]
-
-Merges develop into main for [version] release."
+git merge develop --no-ff -m "Release [version]"
 git push origin main
 git checkout develop
 ```
 
-If `--dry-run`: print what would be merged but do not run.
+If `--dry-run`: print what would happen, skip.
 
 ---
 
-## Phase 5 — Post-Launch Cleanup
+## Phase 5 — Label open issues with version milestone
 
-Label all open arch issues with `v1.0` (or the current version label) for milestone tracking:
 ```bash
 gh issue list --label "arch" --state open --limit 50 --json number --jq '.[].number' | \
-  xargs -I{} gh issue edit {} --add-label "v1.0"
+  xargs -I{} gh issue edit {} --add-label "v1.0" 2>/dev/null || true
 ```
 
 ---
 
-## Phase 6 — Launch Summary
+## Phase 6 — Summary
 
 ```
 /launch COMPLETE
 ════════════════════════════════════════════════════════
-Version:          [version]
-Release date:     [date]
-GitHub release:   [URL]
+Version:       [version]
+Release date:  [date]
+GitHub release: [URL]
 
-Gates passed:     [N/4]
 Artifacts written:
   docs/SALES-PLAY.md
   docs/PRODUCT-BROCHURE.md
   docs/PRODUCT-DOCS.md
   docs/RELEASE-NOTES.md
 
-Branch status:
-  develop → main: merged
-  Tag [version]: pushed
+develop → main: merged
+Tag [version]: pushed
 
-Open arch issues labeled [version]: [N]
-Open carry bugs (known issues): [N]
-
-[If --dry-run:]
-DRY RUN — no release created, no merge performed.
-Run without --dry-run to execute.
+[If --dry-run: DRY RUN — no release created, no merge performed.]
 ════════════════════════════════════════════════════════
 ```
 
@@ -376,10 +226,10 @@ Run without --dry-run to execute.
 
 ## Ground Rules
 
-1. **Gates first** — never proceed past Phase 0 if Gate 1 fails (open critical/high bugs)
-2. **Grounded artifacts** — every claim in GTM docs must be traceable to HIGHLIGHTS.md or PRODUCT.md; no invented proof points
-3. **One version** — determine version once at Phase 1 and use it consistently throughout
-4. **Dry-run is safe** — `--dry-run` never modifies git history, never creates releases
-5. **Honest release notes** — include known issues; do not omit carry bugs or open arch issues
-6. **main is production** — merge to main is the last step, not the first
-7. **Read before writing** — read HIGHLIGHTS.md and PRODUCT.md before generating any artifact
+1. **Gates first** — Gate 1 failure (open critical/high bugs) always blocks, no exceptions
+2. **Grounded artifacts** — every claim traceable to HIGHLIGHTS.md or PRODUCT.md
+3. **Consistent version** — determined once in Phase 1, used everywhere
+4. **Dry-run is safe** — never touches git history or creates releases
+5. **Honest release notes** — include known issues; never omit carry bugs or open arch issues
+6. **main is production** — merging to main is the last step, not the first
+7. **Read before writing** — read HIGHLIGHTS.md and PRODUCT.md before any artifact

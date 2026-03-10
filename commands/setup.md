@@ -2,78 +2,84 @@
 description: Bootstrap a project for the /simulate → /build → /launch workflow. Run once per project.
 argument-hint: (no arguments needed)
 model: sonnet
-allowed-tools: Bash(gh:*), Bash(git:*), Bash(brew:*), Read, Write
+allowed-tools: Bash(gh:*), Bash(git:*), Bash(brew:*), Bash(curl:*), Read, Write, Glob
 ---
 
 # /setup
 
-Bootstrap this project for the 3-command development loop. Run this once when starting on a new project or repo.
+Bootstrap this project for the vibekit development loop. Run once when starting on a new project.
 
 ---
 
-## Step 1 — Check prerequisites
+## Step 1 — Prerequisites check
 
 ```bash
-# Claude Code
-claude --version 2>/dev/null || echo "MISSING: Install Claude Code → npm install -g @anthropic-ai/claude-code"
-
-# GitHub CLI
-gh --version 2>/dev/null || echo "MISSING: Install gh → brew install gh"
-
-# gh auth
-gh auth status 2>/dev/null || echo "NOT AUTHENTICATED: Run → gh auth login"
-
-# git remote
-git remote get-url origin 2>/dev/null || echo "NO REMOTE: Add one → git remote add origin <url>"
-
-# pnpm (if this is a Node project)
-pnpm --version 2>/dev/null || echo "OPTIONAL: Install pnpm → npm install -g pnpm"
+claude --version    2>/dev/null || echo "MISSING: npm install -g @anthropic-ai/claude-code"
+gh --version        2>/dev/null || echo "MISSING: brew install gh"
+gh auth status      2>/dev/null || echo "NOT AUTHENTICATED: gh auth login"
+git remote get-url origin 2>/dev/null || echo "NO REMOTE: git remote add origin <url>"
 ```
 
-Print a clean status table:
+Detect package manager:
+```bash
+if   [ -f "pnpm-lock.yaml" ]; then PM="pnpm"
+elif [ -f "yarn.lock" ];       then PM="yarn"
+elif [ -f "bun.lockb" ];       then PM="bun"
+elif [ -f "package.json" ];    then PM="npm"
+elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then PM="pip/poetry"
+elif [ -f "Gemfile" ];         then PM="bundle"
+else PM="unknown"; fi
+```
+
+Print status table:
 ```
 PREREQUISITE CHECK
 ══════════════════════════════════════
-Claude Code:   [OK vX.X.X | MISSING]
-gh CLI:        [OK vX.X.X | MISSING]
-gh auth:       [OK (user: @name) | NOT AUTHENTICATED]
-git remote:    [OK (url) | MISSING]
-pnpm:          [OK vX.X.X | not required]
+Claude Code:      [OK vX.X.X | MISSING]
+gh CLI:           [OK vX.X.X | MISSING]
+gh auth:          [OK (@user) | NOT AUTHENTICATED]
+git remote:       [OK (url)   | MISSING]
+Package manager:  [pnpm|yarn|bun|npm|pip|bundle|unknown]
 ══════════════════════════════════════
 ```
 
-If any required prerequisite is missing, print the install command and exit. Do not proceed.
+If any required prerequisite is missing: print install command and exit. Do not proceed.
 
 ---
 
-## Step 2 — Check for PRODUCT.md
+## Step 2 — PRODUCT.md
 
 ```bash
 test -f docs/PRODUCT.md && echo "exists" || echo "missing"
 ```
 
-If missing, print:
+If missing, ask:
 ```
 MISSING: docs/PRODUCT.md
 
-This file tells /simulate and /launch about your product's ICP, roles, and competitive context.
-It makes customer personas realistic and GTM artifacts accurate.
-
+This file drives all commands — personas, GTM artifacts, role-appropriate audits.
 Create it now? (yes/no)
 ```
 
-If yes: generate a starter `docs/PRODUCT.md` by reading the codebase:
-- Read `CLAUDE.md` or `README.md` for product description
-- Glob `src/` to understand the tech stack and module structure
-- Ask the user 3 questions:
-  1. "What does this product do? (1-2 sentences)"
-  2. "Who is the primary buyer? (role title + industry)"
-  3. "What are the top 2-3 pain points it solves?"
-- Write `docs/PRODUCT.md` using the template structure from the Scale Risk example, adapted to this project
+If yes: read the codebase first (CLAUDE.md, README.md, src/ or app/ structure), then ask 3 questions:
+1. "What does this product do? (1–2 sentences)"
+2. "Who are the primary users/buyers? List roles if multiple (e.g. Admin, Manager, Analyst)"
+3. "What are the top 2–3 pain points it solves?"
+
+Write `docs/PRODUCT.md` with these sections:
+- **Product summary** (from Q1)
+- **ICP** — who buys it, what industries/geographies apply
+- **Roles** — every named user role with a 1-line description of what they do
+- **Primary tasks per role** — the 2–3 most frequent actions per role (used by /simulate click-count gate)
+- **Pain points** (from Q3)
+- **Competitive context** — what it replaces or competes with (ask if unclear)
+- **Current product state** — tech stack detected from codebase, dev server command, seed command if any
+
+This file is the single source of truth for all vibekit commands. Keep it updated as the product evolves.
 
 ---
 
-## Step 3 — Create GitHub labels (idempotent)
+## Step 3 — GitHub labels (idempotent)
 
 ```bash
 gh label create "sim"       --color "0075ca" --description "From a simulation cycle"            2>/dev/null || true
@@ -92,10 +98,9 @@ gh label create "low"       --color "84cc16" --description "Severity: low"      
 
 ---
 
-## Step 4 — Create Highlights Index issue
+## Step 4 — Highlights Index issue
 
 ```bash
-# Only create if it doesn't exist
 EXISTING=$(gh issue list --search "Highlights Index" --state all --limit 1 --json number --jq '.[0].number // empty')
 ```
 
@@ -104,15 +109,13 @@ If empty:
 gh issue create \
   --title "Highlights Index" \
   --label "highlight" \
-  --body "$(cat <<'EOF'
-# Product Highlights Index
+  --body "# Product Highlights Index
 
 Tracks all positive signals observed during /simulate cycles. Updated automatically — do not edit manually.
 
 ## Index
 <!-- /simulate appends entries here -->
-EOF
-)"
+"
 ```
 
 ---
@@ -123,24 +126,23 @@ EOF
 /setup COMPLETE
 ════════════════════════════════════════════════════════
 Project:        [repo name from git remote]
-Branch:         [current branch]
+Branch:         develop
 PRODUCT.md:     [created | already existed]
-GitHub labels:  12 created/confirmed
-Highlights Index issue: #[N] (or already existed)
+Labels:         12 confirmed
+Highlights Index: #[N]
 
-YOU ARE READY. The 3-command loop:
+THE LOOP:
+  /simulate   — find & fix issues → GitHub Issues
+  /build      — implement [Arch] issues (one approval → autonomous)
+  /launch     — release gates → GTM docs → GitHub release
 
-  /simulate          — find & fix issues, output GitHub Issues
-  /build             — implement open [Arch] issues (one approval → autonomous)
-  /launch --dry-run  — check release gates + generate GTM docs
-
-QUICK START:
-  1. Start your dev server (e.g. pnpm dev)
-  2. Run /simulate
+START:
+  1. make dev       (or your project's dev server command)
+  2. /simulate
   3. Watch it go
 
-Check issue state anytime:
-  gh issue list --label "bug" --state open
+Check issues anytime:
+  gh issue list --label "bug"  --state open
   gh issue list --label "arch" --state open
 ════════════════════════════════════════════════════════
 ```
