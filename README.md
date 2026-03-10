@@ -23,10 +23,15 @@ Built by [ZySec AI](https://zysec.ai).
 ## The loop
 
 ```
-/setup     →  GitHub labels, PRODUCT.md, Highlights Index (run once)
-/simulate  →  bugs fixed inline, arch gaps → GitHub Issues
-/build     →  one approval → arch issues implemented autonomously
-/launch    →  gates checked, GTM docs generated, GitHub release created
+/vibekit-setup     →  codebase scan, PRODUCT.md, CLAUDE.md, session hook, labels (run once)
+/vibekit-simulate  →  bugs fixed inline, arch gaps → GitHub Issues
+/vibekit-build     →  one approval → arch issues implemented autonomously
+/vibekit-pitch     →  generate all customer & developer docs from PRODUCT.md + codebase
+/vibekit-launch    →  gates checked, GitHub release created, merged to main
+/vibekit-review    →  deep code review (security, quality, UI) → GitHub Issues
+/vibekit-test      →  generate & maintain persistent test suites
+/vibekit-metrics   →  trend analysis across simulation cycles
+/vibekit-status    →  project state at a glance (read-only)
 ```
 
 ---
@@ -57,13 +62,22 @@ curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop
 
 ## Getting started
 
-```bash
-/setup      # one-time: labels, PRODUCT.md interview, Highlights Index
-make dev    # start your dev server
-/simulate   # runs indefinitely — Ctrl+C to stop
+**Quick start (zero questions):**
+
+```
+/vibekit-setup --auto
+/vibekit-simulate
 ```
 
-Each `/simulate` cycle:
+**Guided start:**
+
+```
+/vibekit-setup      # scans codebase, one prompt, generates PRODUCT.md + CLAUDE.md + session hook
+make dev            # start your dev server
+/vibekit-simulate   # runs indefinitely — Ctrl+C to stop
+```
+
+Each `/vibekit-simulate` cycle:
 1. Generates realistic customer personas from your `docs/PRODUCT.md`
 2. Runs UI journeys via Playwright
 3. Fixes every fixable bug inline and commits to `develop`
@@ -71,9 +85,72 @@ Each `/simulate` cycle:
 5. Audits every page on 9 UX dimensions, fixes inline
 6. Updates the Highlights Index with genuine product moments
 
-When arch issues accumulate: `/build` — shows a plan, one approval, fully autonomous.
+When arch issues accumulate: `/vibekit-build` — shows a plan, one approval, fully autonomous.
 
-When ready to ship: `/launch` — gates, GTM docs, GitHub release, merge to main.
+Generate all docs: `/vibekit-pitch` — sales play, product brochure, API reference, architecture, pitch deck, and more.
+
+When ready to ship: `/vibekit-launch` — gates, GitHub release, merge to main.
+
+Review code quality: `/vibekit-review` — security, quality, and UI/accessibility audits with GitHub Issues.
+
+Generate tests: `/vibekit-test` — scans for untested code, generates tests, runs them.
+
+Track trends: `/vibekit-metrics` — bug velocity, severity trends, carry bug aging across cycles.
+
+Check project state anytime: `/vibekit-status`
+
+---
+
+## Command flags
+
+### `/vibekit-setup`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Scans codebase, asks one freeform prompt, generates PRODUCT.md + CLAUDE.md, installs session hook |
+| `--auto` | Zero questions — generates PRODUCT.md entirely from codebase scan. `[INFERRED]` markers on uncertain sections. |
+| `--refresh` | Re-scans codebase, diffs against existing PRODUCT.md, proposes updates for stale sections. |
+
+### `/vibekit-pitch`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Generates all artifacts (sales + dev + investor + one-pager + product docs) |
+| `--sales` | GTM-focused: sales play, product brochure, demo sequence |
+| `--dev` | Developer docs: API reference, architecture diagram (Mermaid), onboarding guide |
+| `--investor` | Pitch deck as markdown slides |
+| `--one-pager` | Single-page product overview |
+
+### `/vibekit-review`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Runs all dimensions (security + quality + UI) |
+| `--security` | OWASP top 10, dependency CVEs, secrets in code, auth/authz |
+| `--quality` | CLAUDE.md convention adherence, dead code, complexity, duplication |
+| `--ui` | Accessibility (contrast, ARIA, keyboard nav), responsive issues |
+| `--pr N` | Scope review to changes in PR #N only |
+| `--fix` | Auto-fix fixable quality + UI issues, commit to develop |
+
+### `/vibekit-test`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Scans for untested code, generates all test types |
+| `--unit` | Unit tests for business logic (models, utils, helpers) |
+| `--integration` | Integration tests for API routes/handlers |
+| `--e2e` | End-to-end Playwright test files |
+| `--for "feature"` | Generate tests for a specific feature/module only |
+| `--coverage` | Run existing tests, report coverage, generate tests for gaps |
+
+### `/vibekit-metrics`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Full history analysis, prints to console |
+| `--cycle N` | Show metrics for a specific cycle |
+| `--compare N..M` | Compare two cycles side by side |
+| `--export` | Write `docs/METRICS.md` with Mermaid charts |
 
 ---
 

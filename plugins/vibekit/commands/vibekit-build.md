@@ -1,0 +1,1 @@
+../../../commands/vibekit-build.md

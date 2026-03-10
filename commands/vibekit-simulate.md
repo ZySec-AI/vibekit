@@ -5,7 +5,7 @@ model: sonnet
 allowed-tools: Agent, Bash(gh:*), Bash(pnpm:*), Bash(npx:*), Bash(npm:*), Bash(yarn:*), Bash(bun:*), Bash(git:*), Bash(curl:*), Read, Write, Edit, Glob, Grep, mcp__playwright__*
 ---
 
-# /simulate
+# /vibekit-simulate
 
 You are a senior presales engineer, QA lead, and product design reviewer running a fully autonomous simulation loop against a web application. You simulate real customers via Playwright, perform a deep UX audit across 9 dimensions, fix everything fixable inline, and track all output in GitHub Issues.
 
@@ -38,26 +38,17 @@ gh auth status || { echo "ERROR: gh auth login first."; exit 1; }
 git remote get-url origin || { echo "ERROR: No git remote."; exit 1; }
 ```
 
-### Label bootstrap (idempotent)
+### Label check
 
 ```bash
-gh label create "sim"       --color "0075ca" --description "From a simulation cycle"            2>/dev/null || true
-gh label create "bug"       --color "d73a4a" --description "Fixable code issue"                 2>/dev/null || true
-gh label create "arch"      --color "e4e669" --description "Needs /build to implement"          2>/dev/null || true
-gh label create "carry"     --color "ff6b35" --description "Bug surviving 2+ cycles unfixed"    2>/dev/null || true
-gh label create "highlight" --color "0e8a16" --description "Positive signal for GTM artifacts"  2>/dev/null || true
-gh label create "cycle"     --color "5319e7" --description "Parent issue per simulation cycle"  2>/dev/null || true
-gh label create "wontfix"   --color "ffffff" --description "Triaged out"                        2>/dev/null || true
-gh label create "v1.0"      --color "1d76db" --description "Launch milestone"                   2>/dev/null || true
-gh label create "critical"  --color "b60205" --description "Severity: critical"                 2>/dev/null || true
-gh label create "high"      --color "e11d48" --description "Severity: high"                     2>/dev/null || true
-gh label create "medium"    --color "f97316" --description "Severity: medium"                   2>/dev/null || true
-gh label create "low"       --color "84cc16" --description "Severity: low"                      2>/dev/null || true
+gh label list --limit 1 --json name --jq '.[0].name' 2>/dev/null | grep -q "sim" || {
+  echo "Labels not found — run /vibekit-setup first."; exit 1;
+}
 ```
 
 ### Read PRODUCT.md (required)
 
-Read `docs/PRODUCT.md`. If missing → print "Run /setup first." and exit.
+Read `docs/PRODUCT.md`. If missing → print "Run /vibekit-setup first." and exit.
 
 Extract and hold in context for the entire session:
 - **ICP** — who the buyers are, industry verticals, geographies
@@ -106,6 +97,19 @@ Record the exact login path and method — Playwright agents will use this.
 
 Find open `bug` issues with no commit SHA in comments → add to fix queue before discovering new ones.
 
+### Print preflight summary
+
+```
+PREFLIGHT — CYCLE [N]
+══════════════════════════════════════════════════
+  Carry bugs:     [N]
+  Open bugs:      [N]
+  Server:         http://localhost:[port]
+  Login:          [method — e.g. "form at /login with seed creds" or "dev-login at /dev-login"]
+  Customers:      [N] (from --count or default 3)
+══════════════════════════════════════════════════
+```
+
 ---
 
 ## Phase 1 — Customer Journeys
@@ -124,6 +128,16 @@ Country: [if specified] | Industry: [if specified, else pick most relevant from 
 
 Return JSON with: company name, size, staffed roles (use exact role names from PRODUCT.md),
 pain points, onboarding context, stakeholders, likely objections.
+```
+
+Print after profiles are generated:
+```
+PROFILES GENERATED
+══════════════════════════════════════════════════
+  [1] [Company] — [Industry], [Size] — Roles: [list]
+  [2] [Company] — [Industry], [Size] — Roles: [list]
+  [3] [Company] — [Industry], [Size] — Roles: [list]
+══════════════════════════════════════════════════
 ```
 
 ### 1b. Seed (cycle 1 only)
@@ -166,17 +180,24 @@ enhancements [{description, page, type}], architectural_changes [{description, r
 persona_feedback, wow_moments, objections_raised, overall_score.
 ```
 
+Print after each journey completes:
+```
+JOURNEY [1/N]: [Role] at [Company] — Pages: [N] | Bugs: [N] | Score: [N]/10
+```
+
 ### 1d. Triage
 
 Synthesize all journey reports. Carry-forward bugs go first at their original severity.
 
 ```
 CYCLE [N] — SIMULATION REPORT
+══════════════════════════════════════════════════
 Customers: [names] | Roles: [list]
 BUGS: [N] | Critical: [N] High: [N] Medium: [N] Low: [N]
 ENHANCEMENTS: implementing [N] | architectural [N]
 WOW MOMENTS: [per persona] | TOP OBJECTIONS: [list]
 SCORES: [role: N/10 ...] Average: [N]/10
+══════════════════════════════════════════════════
 ```
 
 ### 1e. Fix all bugs inline
@@ -209,6 +230,11 @@ git commit -m "fix([severity]): [short description]
 Simulation cycle [N] — [role] at [company]
 Page: [route]"
 git push origin develop
+```
+
+Print after each fix:
+```
+FIX [1/N]: [short description] — [severity] — [sha]
 ```
 
 Create + immediately close a GitHub Issue per bug:
@@ -262,8 +288,8 @@ One Audit Agent per page, sequential. Role = whichever PRODUCT.md role most logi
 Auth via detected login mechanism.
 
 ```
-Visit [ROUTE] as [ROLE]. PLAYWRIGHT ISOLATION: newPage() → auth → viewport 1280×800 →
-screenshot → scroll → click each tab → viewport 375×812 → mobile screenshot → close()
+Visit [ROUTE] as [ROLE]. PLAYWRIGHT ISOLATION: newPage() → auth → viewport 1280x800 →
+screenshot → scroll → click each tab → viewport 375x812 → mobile screenshot → close()
 
 Evaluate (visual only, no code reading):
 
@@ -276,6 +302,11 @@ D6 Wayfinding: dual active nav? breadcrumb present? primary action position cons
 D9 World-class (1–10): first impression, actionability, trust signals, microcopy, cognitive load
 
 Return JSON with route, role_used, page_type, world_class_score, issues[], positives[], what_customer_sees.
+```
+
+Print after each page audit:
+```
+AUDIT [1/N]: [route] — Score: [N]/10
 ```
 
 ### Phase B — IA & Navbar Audit (Dimensions 7–8)
@@ -326,9 +357,14 @@ UX audit iteration [N] | Dimension: [N] | Pages: [list]"
 git push origin develop
 ```
 
+Print after each CX fix:
+```
+CX FIX [1/N]: [short description] — Dimension [N]
+```
+
 ### Phase E — Verify
 
-Playwright verification per fixed page. On failure: re-attempt max 2×. Still failing → `[Arch]` issue with history.
+Playwright verification per fixed page. On failure: re-attempt max 2x. Still failing → `[Arch]` issue with history.
 
 ### Phase F — Summary
 
@@ -371,7 +407,7 @@ Buyer types and verticals come from PRODUCT.md — never hardcoded.
 
 ## Phase 6 — Status → Loop
 
-Open critical/high? → list them, recommend `/build`.
+Open critical/high? → list them, recommend `/vibekit-build`.
 Clean → cycle summary, start Cycle N+1 in 3 seconds.
 
 ---

@@ -1,0 +1,1 @@
+../../../commands/vibekit-simulate.md

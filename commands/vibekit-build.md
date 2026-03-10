@@ -5,7 +5,7 @@ model: sonnet
 allowed-tools: Agent, Bash(gh:*), Bash(git:*), Bash(pnpm:*), Bash(npm:*), Bash(yarn:*), Bash(bun:*), Read, Write, Edit, Glob, Grep, mcp__playwright__*
 ---
 
-# /build
+# /vibekit-build
 
 You are a senior software engineer implementing open architectural improvements. You read open `[Arch]` GitHub Issues, present a plan, get one approval, then implement everything autonomously.
 
@@ -29,7 +29,7 @@ gh auth status || { echo "ERROR: gh auth login first."; exit 1; }
 git remote get-url origin || { echo "ERROR: No git remote."; exit 1; }
 ```
 
-Read `docs/PRODUCT.md` before evaluating any issue. If missing → print "Run /setup first." and exit.
+Read `docs/PRODUCT.md` before evaluating any issue. If missing → print "Run /vibekit-setup first." and exit.
 
 ---
 
@@ -43,21 +43,12 @@ gh issue list --label "cycle" --state all --limit 3
 
 If `--issue N`: `gh issue view N --comments`
 
-### Label bootstrap (idempotent)
+### Label check
 
 ```bash
-gh label create "sim"       --color "0075ca" --description "From a simulation cycle"            2>/dev/null || true
-gh label create "bug"       --color "d73a4a" --description "Fixable code issue"                 2>/dev/null || true
-gh label create "arch"      --color "e4e669" --description "Needs /build to implement"          2>/dev/null || true
-gh label create "carry"     --color "ff6b35" --description "Bug surviving 2+ cycles unfixed"    2>/dev/null || true
-gh label create "highlight" --color "0e8a16" --description "Positive signal for GTM artifacts"  2>/dev/null || true
-gh label create "cycle"     --color "5319e7" --description "Parent issue per simulation cycle"  2>/dev/null || true
-gh label create "wontfix"   --color "ffffff" --description "Triaged out"                        2>/dev/null || true
-gh label create "v1.0"      --color "1d76db" --description "Launch milestone"                   2>/dev/null || true
-gh label create "critical"  --color "b60205" --description "Severity: critical"                 2>/dev/null || true
-gh label create "high"      --color "e11d48" --description "Severity: high"                     2>/dev/null || true
-gh label create "medium"    --color "f97316" --description "Severity: medium"                   2>/dev/null || true
-gh label create "low"       --color "84cc16" --description "Severity: low"                      2>/dev/null || true
+gh label list --limit 1 --json name --jq '.[0].name' 2>/dev/null | grep -q "sim" || {
+  echo "Labels not found — run /vibekit-setup first."; exit 1;
+}
 ```
 
 ### Highlights Index bootstrap
@@ -69,12 +60,12 @@ If empty → create it:
 ```bash
 gh issue create --title "Highlights Index" --label "highlight" \
   --body "# Product Highlights Index
-Tracks positive signals from /simulate cycles. Updated automatically — do not edit manually.
+Tracks positive signals from /vibekit-simulate cycles. Updated automatically — do not edit manually.
 ## Index
-<!-- /simulate appends here -->"
+<!-- /vibekit-simulate appends here -->"
 ```
 
-If no open `[Arch]` issues after bootstrap: print "No open [Arch] issues. Ready for /simulate." and exit cleanly.
+If no open `[Arch]` issues after bootstrap: print "No open [Arch] issues. Ready for /vibekit-simulate." and exit cleanly.
 
 ---
 
@@ -85,7 +76,7 @@ Read each open `[Arch]` issue in full: `gh issue view N --comments`
 Present the work plan and **wait for approval**:
 
 ```
-/build WORK PLAN
+/vibekit-build WORK PLAN
 ════════════════════════════════════════════════════════
 Open [Arch] issues: [N] | Carry bugs: [N]
 
@@ -154,7 +145,7 @@ PLAYWRIGHT ISOLATION: newPage() → auth as [appropriate role] → navigate → 
 Return: pass/fail, screenshot, remaining gaps.
 ```
 
-On failure: re-attempt max 2×. Still failing → leave issue open, comment with failure details, move to next issue.
+On failure: re-attempt max 2x. Still failing → leave issue open, comment with failure details, move to next issue.
 
 ### 2d. Commit and close
 
@@ -194,7 +185,7 @@ Any now fixable given arch work done → fix inline (same verify/commit/close fl
 ## Phase 4 — Summary
 
 ```
-/build COMPLETE
+/vibekit-build COMPLETE
 ════════════════════════════════════════════════════════
 Arch implemented: [N] | Skipped: [N] | Failed: [N]
 Carry resolved:   [N]
@@ -202,7 +193,7 @@ Commits → develop: [N]
 Files changed: [list]
 
 Open remaining: arch [N] | carry [N] | bug [N]
-Next: /simulate (find new issues) or /launch (if clean)
+Next: /vibekit-simulate (find new issues) or /vibekit-launch (if clean)
 ════════════════════════════════════════════════════════
 ```
 

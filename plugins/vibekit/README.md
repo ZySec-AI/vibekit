@@ -2,7 +2,7 @@
 
 **Autonomous product development loop for Claude Code.**
 
-Simulate real customers, find and fix bugs, implement features, and ship — all from four slash commands. No manual test plans. No separate QA cycle. No stale docs.
+Simulate real customers, find and fix bugs, implement features, generate docs, review code, generate tests, track metrics, and ship — all from nine slash commands. No manual test plans. No separate QA cycle. No stale docs.
 
 Built by [ZySec AI](https://zysec.ai).
 
@@ -19,9 +19,9 @@ code → manually test → file ticket → forget about it → code
 vibekit turns Claude Code into a self-driving quality loop:
 
 ```
-/simulate  →  bugs fixed inline, arch gaps tracked in GitHub
-/build     →  arch gaps implemented, one approval, fully autonomous
-/launch    →  gates checked, GTM docs generated, GitHub release created
+/vibekit-simulate  →  bugs fixed inline, arch gaps tracked in GitHub
+/vibekit-build     →  arch gaps implemented, one approval, fully autonomous
+/vibekit-launch    →  gates checked, GTM docs generated, GitHub release created
 ```
 
 Every bug is found by a simulated customer using your actual UI. Every fix is committed and verified in the browser. Every improvement is tracked as a GitHub Issue — not a text file.
@@ -32,10 +32,15 @@ Every bug is found by a simulated customer using your actual UI. Every fix is co
 
 | Command | What it does |
 |---------|-------------|
-| `/setup` | First-time setup — installs GitHub labels, checks prerequisites, generates `docs/PRODUCT.md` |
-| `/simulate` | Runs customer journeys + 9-dimension UX audit, fixes all bugs inline, creates GitHub Issues |
-| `/build` | Reads open `[Arch]` issues, shows a plan, gets one approval, implements everything autonomously |
-| `/launch` | Checks release gates, generates GTM docs, creates GitHub release, merges to main |
+| `/vibekit-setup` | First-time setup — scans codebase, generates `docs/PRODUCT.md` + `CLAUDE.md`, installs session hook, creates GitHub labels |
+| `/vibekit-simulate` | Runs customer journeys + 9-dimension UX audit, fixes all bugs inline, creates GitHub Issues |
+| `/vibekit-build` | Reads open `[Arch]` issues, shows a plan, gets one approval, implements everything autonomously |
+| `/vibekit-pitch` | Generates all customer & developer docs from PRODUCT.md + HIGHLIGHTS.md + codebase |
+| `/vibekit-launch` | Checks release gates, creates GitHub release, merges to main |
+| `/vibekit-review` | Deep code review (security, quality, UI/accessibility), outputs GitHub Issues |
+| `/vibekit-test` | Scans for untested code, generates persistent test suites, runs them |
+| `/vibekit-metrics` | Trend analysis across simulation cycles — bug velocity, severity, carry bugs |
+| `/vibekit-status` | Shows project state at a glance — issues, gates, recommended next command |
 
 ---
 
@@ -48,7 +53,7 @@ Every bug is found by a simulated customer using your actual UI. Every fix is co
 | [Claude Code](https://claude.ai/code) | Runs all commands | `npm install -g @anthropic-ai/claude-code` |
 | [GitHub CLI](https://cli.github.com) | Issue tracking | `brew install gh` then `gh auth login` |
 | Git remote | Repo must be on GitHub | `git remote add origin <url>` |
-| Playwright MCP | Browser automation for `/simulate` and `/build` | See [Playwright MCP setup](#playwright-mcp-setup) |
+| Playwright MCP | Browser automation for `/vibekit-simulate` and `/vibekit-build` | See [Playwright MCP setup](#playwright-mcp-setup) |
 
 ### Install the plugin
 
@@ -64,7 +69,7 @@ claude plugin marketplace add ZySec-AI/vibekit --scope user
 claude plugin install vibekit@ZySec-AI/vibekit
 ```
 
-All four commands (`/setup`, `/simulate`, `/build`, `/launch`) are now available.
+All nine commands are now available.
 
 > **Sharing with your team:** Each person runs these two commands once. Or add to your project's `.claude/settings.json`:
 > ```json
@@ -76,30 +81,43 @@ All four commands (`/setup`, `/simulate`, `/build`, `/launch`) are now available
 
 ## Getting started
 
-### Step 1 — Run `/setup` once
+### Quick start (zero questions)
 
 ```
-/setup
+/vibekit-setup --auto
+/vibekit-simulate
+```
+
+### Guided start
+
+#### Step 1 — Run `/vibekit-setup` once
+
+```
+/vibekit-setup
 ```
 
 This will:
 - Verify all prerequisites are installed
-- Create 12 GitHub labels in your repo (`bug`, `arch`, `carry`, `highlight`, etc.)
+- Scan your codebase (README, package.json, routes, models) and print what it found
+- Ask one freeform prompt about your product — skip anything the scan already got right
+- Generate `docs/PRODUCT.md` (draft-and-confirm flow)
+- Generate `CLAUDE.md` if missing (project conventions)
+- Install a session hook that shows issue state on Claude Code start
+- Create 13 GitHub labels in your repo (`bug`, `arch`, `carry`, `highlight`, `review`, etc.)
 - Create a Highlights Index issue for tracking positive signals
-- Generate `docs/PRODUCT.md` if it doesn't exist (asks you 3 questions about your product)
 
-### Step 2 — Start your dev server
+#### Step 2 — Start your dev server
 
 ```bash
 pnpm dev   # or npm run dev, yarn dev, python manage.py runserver, etc.
 ```
 
-vibekit's `/simulate` command will auto-detect the running port. If nothing is running, it will try `pnpm dev` automatically.
+vibekit's `/vibekit-simulate` command will auto-detect the running port. If nothing is running, it will try `pnpm dev` automatically.
 
-### Step 3 — Run `/simulate`
+#### Step 3 — Run `/vibekit-simulate`
 
 ```
-/simulate
+/vibekit-simulate
 ```
 
 It runs indefinitely (Ctrl+C to stop). Each cycle:
@@ -113,26 +131,98 @@ It runs indefinitely (Ctrl+C to stop). Each cycle:
 7. Updates `docs/HIGHLIGHTS.md` with genuine wow moments
 8. Loops
 
-### Step 4 — Run `/build` when arch issues accumulate
+#### Step 4 — Run `/vibekit-build` when arch issues accumulate
 
 ```
-/build
+/vibekit-build
 ```
 
 Shows you a prioritised list of open `[Arch]` issues with implementation plan. You say yes. It implements, verifies in the browser, commits, and closes each issue — no further input needed.
 
-### Step 5 — Run `/launch` when ready to ship
+#### Step 5 — Generate docs with `/vibekit-pitch`
 
 ```
-/launch --dry-run   # check gates first
-/launch             # full release
+/vibekit-pitch              # all artifacts
+/vibekit-pitch --sales      # sales play, brochure, demo sequence
+/vibekit-pitch --dev        # API reference, architecture, onboarding guide
 ```
+
+#### Step 6 — Run `/vibekit-launch` when ready to ship
+
+```
+/vibekit-launch --dry-run   # check gates first
+/vibekit-launch             # full release
+```
+
+#### More commands
+
+```
+/vibekit-review             # deep code review (security, quality, UI)
+/vibekit-review --pr 42     # review a specific PR
+/vibekit-test               # generate tests for untested code
+/vibekit-test --coverage    # run coverage, fill gaps
+/vibekit-metrics            # trend analysis across cycles
+/vibekit-metrics --export   # write docs/METRICS.md with Mermaid charts
+```
+
+---
+
+## Command flags
+
+### `/vibekit-setup`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Scans codebase, asks one freeform prompt, generates PRODUCT.md + CLAUDE.md, installs session hook |
+| `--auto` | Zero questions — generates PRODUCT.md entirely from codebase scan. `[INFERRED]` markers on uncertain sections. |
+| `--refresh` | Re-scans codebase, diffs against existing PRODUCT.md, proposes updates for stale sections. |
+
+### `/vibekit-pitch`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Generates all artifacts (sales + dev + investor + one-pager + product docs) |
+| `--sales` | GTM-focused: sales play, product brochure, demo sequence |
+| `--dev` | Developer docs: API reference, architecture diagram (Mermaid), onboarding guide |
+| `--investor` | Pitch deck as markdown slides |
+| `--one-pager` | Single-page product overview |
+
+### `/vibekit-review`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Runs all dimensions (security + quality + UI) |
+| `--security` | OWASP top 10, dependency CVEs, secrets in code, auth/authz |
+| `--quality` | CLAUDE.md convention adherence, dead code, complexity, duplication |
+| `--ui` | Accessibility (contrast, ARIA, keyboard nav), responsive issues |
+| `--pr N` | Scope review to changes in PR #N only |
+| `--fix` | Auto-fix fixable quality + UI issues, commit to develop |
+
+### `/vibekit-test`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Scans for untested code, generates all test types |
+| `--unit` | Unit tests for business logic (models, utils, helpers) |
+| `--integration` | Integration tests for API routes/handlers |
+| `--e2e` | End-to-end Playwright test files |
+| `--for "feature"` | Generate tests for a specific feature/module only |
+| `--coverage` | Run existing tests, report coverage, generate tests for gaps |
+
+### `/vibekit-metrics`
+
+| Flag | What it does |
+|------|-------------|
+| *(no flags)* | Full history analysis, prints to console |
+| `--cycle N` | Show metrics for a specific cycle |
+| `--compare N..M` | Compare two cycles side by side |
+| `--export` | Write `docs/METRICS.md` with Mermaid charts |
 
 ---
 
 ## The full picture
 
-### `/simulate` in detail
+### `/vibekit-simulate` in detail
 
 ```
 Each cycle:
@@ -166,7 +256,7 @@ Each cycle:
     └── Regenerate docs/DEMO-SEQUENCE.md if highlights changed
 
   Phase 6 — Status
-    └── Critical/high open? → "Run /build" | Clean → "Ready"
+    └── Critical/high open? → "Run /vibekit-build" | Clean → "Ready"
 ```
 
 ### The 9 UX audit dimensions
@@ -182,7 +272,7 @@ Every page is scored on all 9. Anything below 7/10 gets improved.
 | 5 | Spacing & hierarchy | One dominant CTA per page, density matches role tier |
 | 6 | Navigation & wayfinding | Correct active state, breadcrumbs, primary actions top-right |
 | 7 | Information architecture | Correct grouping, depth, progressive disclosure, cross-links |
-| 8 | Navbar quality | Item counts (4–7 by tier), labels clear to first-time users, click-count gate |
+| 8 | Navbar quality | Item counts (4-7 by tier), labels clear to first-time users, click-count gate |
 | 9 | World-class standard | First impression, actionability, trust signals, microcopy quality |
 
 ### What GitHub Issues look like after a cycle
@@ -195,7 +285,7 @@ Every page is scored on all 9. Anything below 7/10 gets improved.
 [Sim] Cycle 3 — 2026-03-10                                                  [open, parent]
 ```
 
-Bugs are closed the moment they're fixed. Arch issues stay open until `/build`.
+Bugs are closed the moment they're fixed. Arch issues stay open until `/vibekit-build`.
 
 ---
 
@@ -205,117 +295,67 @@ The one file vibekit needs from you. It tells every command who your customers a
 
 It makes customer personas realistic. It makes GTM artifacts accurate. It makes the click-count checks role-appropriate.
 
-If it doesn't exist, `/setup` will generate it by:
-1. Reading your codebase (CLAUDE.md, README, src/ structure)
-2. Asking you three questions:
-   - What does this product do? (1-2 sentences)
-   - Who is the primary buyer? (role title + industry)
-   - What are the top 2-3 pain points it solves?
+If it doesn't exist, `/vibekit-setup` will generate it by:
+1. Scanning your codebase (CLAUDE.md, README, package.json, routes, models, .env.example)
+2. Printing what it found (tech stack, routes, roles, modules)
+3. Asking one freeform prompt — skip anything the scan already got right
+4. Drafting the full PRODUCT.md for your approval
 
-You can update it any time. All commands re-read it each run.
+Or skip the prompt entirely: `/vibekit-setup --auto`
+
+You can update it any time. All commands re-read it each run. Use `/vibekit-setup --refresh` to re-scan and update stale sections.
 
 ---
 
 ## What gets created in your repo
 
-### GitHub Labels (created by `/setup`, idempotent)
+### GitHub Labels (created by `/vibekit-setup`, idempotent)
 
 | Label | Color | Meaning |
 |-------|-------|---------|
 | `sim` | blue | Anything from a simulation cycle |
 | `bug` | red | Fixable code issue — auto-closed when fixed |
-| `arch` | yellow | Needs `/build` — architectural change required |
+| `arch` | yellow | Needs `/vibekit-build` — architectural change required |
 | `carry` | orange | Bug surviving 2+ cycles without a fix |
 | `highlight` | green | Positive signal — surfaces in GTM artifacts |
 | `cycle` | purple | Parent issue per simulation cycle |
 | `wontfix` | white | Triaged out |
 | `v1.0` | blue | Launch milestone |
+| `review` | purple | From a `/vibekit-review` audit |
 | `critical` / `high` / `medium` / `low` | red→green | Severity |
 
 ### Files written to `docs/`
 
 | File | Written by | What it contains |
 |------|-----------|-----------------|
-| `docs/PRODUCT.md` | `/setup` | ICP, roles, competitive context — source of truth for all commands |
-| `docs/HIGHLIGHTS.md` | `/simulate` | Observed customer wow moments, features that resonated |
-| `docs/DEMO-SEQUENCE.md` | `/simulate` | Recommended demo order per buyer vertical |
-| `docs/SALES-PLAY.md` | `/launch` | AE/SE battlecard with objection handling |
-| `docs/PRODUCT-BROCHURE.md` | `/launch` | Customer-facing capability overview |
-| `docs/PRODUCT-DOCS.md` | `/launch` | Technical reference for evaluators |
-| `docs/RELEASE-NOTES.md` | `/launch` | Changelog for the release |
+| `docs/PRODUCT.md` | `/vibekit-setup` | ICP, roles, competitive context — source of truth for all commands |
+| `docs/HIGHLIGHTS.md` | `/vibekit-simulate` | Observed customer wow moments, features that resonated |
+| `docs/DEMO-SEQUENCE.md` | `/vibekit-simulate` | Recommended demo order per buyer vertical |
+| `docs/SALES-PLAY.md` | `/vibekit-pitch` | AE/SE battlecard with objection handling |
+| `docs/PRODUCT-BROCHURE.md` | `/vibekit-pitch` | Customer-facing capability overview |
+| `docs/DEMO-SEQUENCE.md` | `/vibekit-pitch` | Recommended demo flows per buyer vertical |
+| `docs/API-REFERENCE.md` | `/vibekit-pitch` | API endpoint reference from codebase scan |
+| `docs/ARCHITECTURE.md` | `/vibekit-pitch` | Architecture overview with Mermaid diagrams |
+| `docs/ONBOARDING.md` | `/vibekit-pitch` | Developer onboarding guide |
+| `docs/PITCH-DECK.md` | `/vibekit-pitch` | Pitch deck as markdown slides |
+| `docs/ONE-PAGER.md` | `/vibekit-pitch` | Single-page product overview |
+| `docs/PRODUCT-DOCS.md` | `/vibekit-pitch` | Technical reference for evaluators |
+| `docs/RELEASE-NOTES.md` | `/vibekit-launch` | Changelog for the release |
+| `docs/METRICS.md` | `/vibekit-metrics` | Metrics dashboard with Mermaid charts (with `--export`) |
 
----
+### Session hook (auto-installed by `/vibekit-setup`)
 
-## Session hook (recommended)
+`/vibekit-setup` automatically installs a session hook that shows live issue state every time you open Claude Code. It creates:
+- `.claude/hooks/session-start.sh` — the status script
+- Merges hook config into `.claude/settings.json`
 
-Add this to your project's `.claude/settings.json` to see live issue state every time you open Claude Code:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-start.sh",
-            "timeout": 15,
-            "statusMessage": "Loading project state..."
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Create `.claude/hooks/session-start.sh` in your repo:
-
-```bash
-#!/bin/bash
-BRANCH="$(git branch --show-current 2>/dev/null)"
-echo "=== vibekit — $(basename $(git rev-parse --show-toplevel)) ==="
-echo "Branch: $BRANCH"
-echo ""
-if ! gh auth status &>/dev/null; then
-  echo "gh not authenticated — run: gh auth login"
-  echo "Then run /setup to initialise this project."
-  exit 0
-fi
-HIGHLIGHTS=$(gh issue list --search "Highlights Index" --state all --limit 1 --json number --jq '.[0].number // empty' 2>/dev/null)
-if [ -z "$HIGHLIGHTS" ]; then
-  echo "Project not initialised — run /setup first."
-  exit 0
-fi
-BUG_COUNT=$(gh issue list --label "bug" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "?")
-ARCH_COUNT=$(gh issue list --label "arch" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "?")
-echo "Open bugs: $BUG_COUNT  |  Open arch issues: $ARCH_COUNT"
-gh issue list --label "bug,critical" --state open --limit 3 --json number,title \
-  --jq '.[] | "  CRITICAL #\(.number) — \(.title)"' 2>/dev/null
-gh issue list --label "bug,high" --state open --limit 3 --json number,title \
-  --jq '.[] | "  HIGH     #\(.number) — \(.title)"' 2>/dev/null
-echo ""
-gh issue list --label "cycle" --state all --limit 1 --json title,createdAt \
-  --jq '.[] | "Last cycle: \(.title) (\(.createdAt[:10]))"' 2>/dev/null || echo "Last cycle: none"
-echo ""
-if gh issue list --label "bug,critical" --state open --limit 1 --json number --jq '.[0].number' 2>/dev/null | grep -q .; then
-  echo "NEXT: /simulate — critical bugs open"
-elif [ "$ARCH_COUNT" -gt "0" ] 2>/dev/null; then
-  echo "NEXT: /build ($ARCH_COUNT arch issues) or /simulate (next cycle)"
-else
-  echo "NEXT: /simulate (continuous) or /launch (ready to ship)"
-fi
-echo "======================================="
-```
-
-Make it executable: `chmod +x .claude/hooks/session-start.sh`
+No manual setup needed.
 
 ---
 
 ## Playwright MCP setup
 
-`/simulate` and `/build` use Playwright to run browser journeys and verify fixes. Add the Playwright MCP server to your Claude Code settings:
+`/vibekit-simulate` and `/vibekit-build` use Playwright to run browser journeys and verify fixes. Add the Playwright MCP server to your Claude Code settings:
 
 In `~/.claude/settings.json`:
 ```json
@@ -351,7 +391,7 @@ vibekit doesn't assume a specific framework. It works with:
 - **Next.js** — auto-detects `localhost:3000`, reads `src/app/` for page inventory
 - **React / Vite** — detects `localhost:5173`
 - **Django / Rails / Laravel** — detects common dev ports
-- **Anything** — `/simulate` tries ports 3000, 3001, 5173, 8000, 8080 and starts `pnpm dev` or `npm run dev` if none respond
+- **Anything** — `/vibekit-simulate` tries ports 3000, 3001, 5173, 8000, 8080 and starts `pnpm dev` or `npm run dev` if none respond
 
 The only hard requirement: a browser-accessible UI and a GitHub remote.
 
@@ -363,19 +403,34 @@ The only hard requirement: a browser-accessible UI and a GitHub remote.
 Yes. `gh` CLI works with private repos as long as you have access.
 
 **Does it push directly to main?**
-No. `/simulate` and `/build` push to `develop` only. `/launch` is the only command that touches `main`, and only after passing all gates.
+No. `/vibekit-simulate` and `/vibekit-build` push to `develop` only. `/vibekit-launch` is the only command that touches `main`, and only after passing all gates.
 
 **What if Playwright can't find an element?**
-That becomes a bug issue. `/simulate` logs it, creates a GitHub Issue if needed, and moves on — it never stops because of a navigation failure.
+That becomes a bug issue. `/vibekit-simulate` logs it, creates a GitHub Issue if needed, and moves on — it never stops because of a navigation failure.
 
 **Can I run just the UX audit without customer journeys?**
-Yes: `/simulate --cx-only`
+Yes: `/vibekit-simulate --cx-only`
 
 **Can I run just journeys without the UX audit?**
-Yes: `/simulate --journey-only`
+Yes: `/vibekit-simulate --journey-only`
 
 **What if I don't have PRODUCT.md?**
-`/setup` will generate it. Or create it manually — see the format in the Scale Risk reference implementation.
+`/vibekit-setup` will generate it. Use `--auto` for zero questions, or the default guided flow with one freeform prompt.
+
+**How do I update PRODUCT.md after my product evolves?**
+Run `/vibekit-setup --refresh` — it re-scans the codebase, diffs against the existing file, and proposes updates.
+
+**How do I generate sales/marketing docs?**
+Run `/vibekit-pitch` — it generates all customer and developer-facing artifacts from PRODUCT.md + HIGHLIGHTS.md + codebase scan. Use `--sales`, `--dev`, `--investor`, or `--one-pager` for specific subsets.
+
+**Can I review a specific PR?**
+Yes: `/vibekit-review --pr 42` — scopes the review to changes in that PR only.
+
+**Does `/vibekit-test` require a specific test framework?**
+No. It auto-detects Jest, Vitest, pytest, RSpec, Go testing, and more. It reads existing test patterns and generates tests that match your project's conventions.
+
+**How do I track quality trends across cycles?**
+Run `/vibekit-metrics` — it reads GitHub Issues history to show bug velocity, severity trends, carry bug aging, and recommendations. Use `--export` to write `docs/METRICS.md` with Mermaid charts.
 
 ---
 
