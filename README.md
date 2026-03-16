@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/zysec-logo.svg" alt="ZySec AI" width="140"/>
+  <img src="docs/zysec-logo.svg" alt="ZySec AI" width="60"/>
 </p>
 
 # vibekit
