@@ -1,13 +1,13 @@
 ---
-description: Implements open [Arch] GitHub Issues. One approval — fully autonomous.
-argument-hint: [--dry-run] [--issue N] [--auto] [--daemon] [--interval N]
+description: Full autonomous loop — build arch issues, simulate, repeat until launch-ready. One approval, then hands-off.
+argument-hint: [--dry-run] [--issue N] [--once] [--daemon] [--interval N]
 model: sonnet
 allowed-tools: Agent, Bash(gh:*), Bash(git:*), Bash(pnpm:*), Bash(npx:*), Bash(uv:*), Read, Write, Edit, Glob, Grep
 ---
 
 # /vb-build
 
-You are a senior software engineer implementing open architectural improvements. You read open `[Arch]` GitHub Issues, present a plan, get one approval, then implement everything autonomously.
+You are a senior software engineer running the full autonomous development loop. By default: build all open `[Arch]` issues, run a `/vb-simulate` cycle to find new issues, build again, repeat — until launch gates pass or no new issues emerge. One approval at the start, then fully autonomous.
 
 Branch: always `develop`. Never create feature branches.
 
@@ -17,9 +17,10 @@ Branch: always `develop`. Never create feature branches.
 $ARGUMENTS
 ```
 
+- *(no flags)* — **default: full autonomous loop** — build → simulate → build → repeat until launch gates pass
 - `--dry-run` — show plan only, no implementation
-- `--issue N` — implement only issue #N
-- `--auto` — full autonomous loop: build all arch issues → run `/vb-simulate` cycle → build new arch issues → repeat until launch gates pass or no new issues found
+- `--issue N` — implement only issue #N (no simulate, no loop)
+- `--once` — build all open arch issues once, then stop (no simulate cycle, no loop)
 - `--daemon` — watch mode: poll for new `arch` and `vibekit`-labeled issues, implement automatically
 - `--interval N` — polling interval in minutes when in daemon mode (default: 5)
 
@@ -164,13 +165,13 @@ while true; do
 done
 ```
 
-**If `--auto` mode:**
+**If default mode (no `--once`, `--issue`, `--daemon`, or `--dry-run`):**
 
-Full autonomous loop — build all arch issues, then simulate, then build again, repeat until launch-ready.
+Full autonomous loop — build all arch issues, then simulate, then build again, repeat until launch-ready. This is the default behavior.
 
 Print banner:
 ```
-/vb-build AUTO MODE
+/vb-build
 ════════════════════════════════════════════════════════
 Full autonomous loop: build → simulate → build → repeat
 Stops when: launch gates pass OR no new issues after a cycle
@@ -276,7 +277,7 @@ fi
 
 Print auto mode summary:
 ```
-/vb-build AUTO COMPLETE
+/vb-build COMPLETE
 ════════════════════════════════════════════════════════
 Rounds completed:  [AUTO_ROUND]
 Arch implemented:  [total across all rounds]
@@ -293,9 +294,9 @@ Final state:
 ════════════════════════════════════════════════════════
 ```
 
-Exit after auto mode completes.
+Exit after the loop completes.
 
-**If NOT `--daemon` and NOT `--auto`:** proceed to Phase 1 below.
+**If `--once`:** proceed to Phase 1 below (build all arch issues once, no simulate cycle).
 
 ```bash
 gh issue list --label "arch" --state open --limit 50
@@ -471,7 +472,7 @@ Any now fixable given arch work done → fix inline (same verify/commit/close fl
 ## Phase 4 — Summary
 
 ```
-/vb-build COMPLETE
+/vb-build --once COMPLETE
 ════════════════════════════════════════════════════════
 Arch implemented: [N] | Skipped: [N] | Failed: [N]
 Carry resolved:   [N]
@@ -479,7 +480,7 @@ Commits → develop: [N]
 Files changed: [list]
 
 Open remaining: arch [N] | carry [N] | bug [N]
-Next: /vb-simulate (find new issues) or /vb-launch (if clean)
+Next: /vb-build (full loop) or /vb-simulate or /vb-launch (if clean)
 ════════════════════════════════════════════════════════
 ```
 

@@ -33,11 +33,9 @@ make dev       # start your app
 When you're ready:
 
 ```bash
-/vb-build      # implements architectural issues (one approval, then autonomous)
+/vb-build      # full autonomous loop: build → simulate → repeat until launch-ready
 /vb-launch     # quality gates → GitHub release → merge to main
 ```
-
-Or let it do everything: `/vb-build --auto` runs the full loop — build, simulate, build, repeat — until launch gates pass.
 
 ---
 
@@ -61,12 +59,12 @@ Or let it do everything: `/vb-build --auto` runs the full loop — build, simula
 - Measures Core Web Vitals
 - Updates a Kanban board, milestones, and a Highlights Index — automatically
 
-**`/vb-build`** — implements open `[Arch]` issues autonomously.
+**`/vb-build`** — the autonomous workhorse. One approval, then hands-off.
 
-- Shows a plan, gets one approval, then builds everything
+- **Default**: full loop — build all arch issues → run simulate cycle → build new issues → repeat until launch gates pass
 - Reads codebase → implements → verifies via Playwright → commits → closes issue
-- `--auto` mode: full autonomous loop — build → simulate → build → repeat until launch-ready
-- `--daemon` mode: watches for new issues and builds them continuously
+- `--once` builds arch issues without running simulate
+- `--daemon` watches for new issues and builds them continuously
 
 **`/vb-launch`** — ships when quality gates pass.
 

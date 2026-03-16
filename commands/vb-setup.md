@@ -971,7 +971,7 @@ Highlights Index: #[N]
 
 THE LOOP:
   /vb-simulate   — find & fix issues → GitHub Issues
-  /vb-build      — implement [Arch] issues (one approval → autonomous)
+  /vb-build      — full loop: build → simulate → repeat (one approval → autonomous)
   /vb-launch     — release gates → GitHub release → merge to main
 
 MORE:
