@@ -1,13 +1,15 @@
 # Makefile.example — copy to your project root as `Makefile` and adapt.
-# Assumes a Node.js app. Adjust DB_* vars, docker image, and seed command for your stack.
+# Four targets: dev (local + DB in Docker), run (all in Docker), seed, clean.
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 APP_NAME   ?= myapp
 DB_NAME    ?= $(APP_NAME)_dev
-DB_PORT    ?= 27017
-DB_IMAGE   ?= mongo:7
-# For postgres: DB_IMAGE=postgres:16, DB_PORT=5432
-# For mysql:    DB_IMAGE=mysql:8,     DB_PORT=3306
+DB_PORT    ?= 5432
+DB_IMAGE   ?= postgres:16
+# Common alternatives:
+#   MongoDB:  DB_IMAGE=mongo:7,     DB_PORT=27017
+#   MySQL:    DB_IMAGE=mysql:8,     DB_PORT=3306
+#   Redis:    DB_IMAGE=redis:7,     DB_PORT=6379
 
 # Detect package manager
 ifeq ($(wildcard pnpm-lock.yaml),pnpm-lock.yaml)
@@ -22,44 +24,38 @@ endif
 
 # ─── Targets ─────────────────────────────────────────────────────────────────
 
-.PHONY: dev run reset clean seed help
+.PHONY: dev run seed clean help
 
-## dev — Run app locally. Start DB in Docker if not already running.
+## dev — Run app locally (hot-reload). Start DBs in Docker if not running.
 dev:
-	@echo "Checking database..."
+	@echo "Starting database ($(DB_IMAGE) on port $(DB_PORT))..."
 	@docker ps --format '{{.Ports}}' | grep -q "$(DB_PORT)" || \
-	  (echo "Starting $(DB_IMAGE) on port $(DB_PORT)..." && \
-	   docker run -d --name $(APP_NAME)-db -p $(DB_PORT):$(DB_PORT) $(DB_IMAGE) && \
-	   sleep 2)
-	@echo "Database ready on port $(DB_PORT)"
-	@echo "Starting app..."
+	  (docker run -d --name $(APP_NAME)-db \
+	    -p $(DB_PORT):$(DB_PORT) \
+	    -e POSTGRES_DB=$(DB_NAME) \
+	    -e POSTGRES_PASSWORD=dev \
+	    $(DB_IMAGE) && sleep 2)
+	@echo "Database ready."
+	@echo "Starting app (developer mode)..."
 	$(PM) dev
 
-## run — Start everything in Docker (app + DB). Useful for demos and CI.
+## run — Start everything in Docker (app + all DBs). Good for full-stack testing.
 run:
 	docker compose up --build
 
-## reset — Stop and remove all Docker containers and volumes for this app (destructive).
-reset:
-	@echo "WARNING: This will delete all data. Press Ctrl+C to cancel, Enter to continue."
-	@read _
-	docker compose down -v --remove-orphans
-	docker rm -f $(APP_NAME)-db 2>/dev/null || true
-	docker volume ls -q | grep $(APP_NAME) | xargs docker volume rm 2>/dev/null || true
-	@echo "Reset complete."
-
-## clean — Drop all collections/tables but keep the DB container running.
-clean:
-	@echo "Clearing database collections (keeping container)..."
-	@docker exec $(APP_NAME)-db mongosh $(DB_NAME) --eval "db.getCollectionNames().forEach(c => db[c].deleteMany({}))" 2>/dev/null || \
-	  docker exec $(APP_NAME)-db psql -U postgres -d $(DB_NAME) -c "DO \$\$ DECLARE r RECORD; BEGIN FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP EXECUTE 'TRUNCATE TABLE ' || r.tablename || ' CASCADE'; END LOOP; END \$\$;" 2>/dev/null || \
-	  echo "Adjust the clean target for your database type."
-	@echo "Collections cleared."
-
-## seed — Reload all dev accounts and fixture data.
+## seed — Load dev accounts and fixture data into the running database.
 seed:
 	$(PM) seed
 
-## help — Show available targets.
+## clean — Stop all containers, remove volumes, wipe all data (destructive).
+clean:
+	@echo "WARNING: This will delete all containers and data."
+	@printf "Press Enter to continue, Ctrl+C to cancel: " && read _
+	docker compose down -v --remove-orphans
+	docker rm -f $(APP_NAME)-db 2>/dev/null || true
+	docker volume ls -q | grep $(APP_NAME) | xargs docker volume rm 2>/dev/null || true
+	@echo "Clean complete."
+
+## help — List available targets.
 help:
 	@grep -E '^## ' Makefile | sed 's/## //'

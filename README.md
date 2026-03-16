@@ -1,190 +1,114 @@
+<p align="center">
+  <img src="docs/zysec-logo.svg" alt="ZySec AI" width="140"/>
+</p>
+
 # vibekit
 
-**Autonomous product development loop for Claude Code.**
+**Your product gets better while you sleep.**
 
-Most dev loops rely on manual testing, stale docs, and context switching to GitHub. vibekit closes the loop — simulated customers find bugs, Claude fixes them inline, and everything is tracked in GitHub Issues automatically.
+Simulated customers find bugs. Claude fixes them. Everything ships to GitHub automatically. No tickets. No QA cycle. No coordination.
 
 Built by [ZySec AI](https://zysec.ai).
 
 ---
 
-## Why vibekit
-
-| Other approaches | vibekit |
-|-----------------|---------|
-| You manually test and file tickets | Simulated customers find bugs — Claude fixes them inline |
-| QA is a separate cycle | UX audit runs every cycle across every page, 9 dimensions |
-| Issues live in Slack threads or docs | Every bug, arch gap, and cycle tracked as GitHub Issues |
-| GTM docs are written by hand, go stale | Generated from real observed customer behaviour |
-| Shipping requires coordination | One command — gates checked, release created, merged to main |
-
----
-
-## The loop
-
-```
-/vibekit-setup     →  codebase scan, PRODUCT.md, CLAUDE.md, session hook, labels (run once)
-/vibekit-simulate  →  bugs fixed inline, arch gaps → GitHub Issues
-/vibekit-build     →  one approval → arch issues implemented autonomously
-/vibekit-pitch     →  generate all customer & developer docs from PRODUCT.md + codebase
-/vibekit-launch    →  gates checked, GitHub release created, merged to main
-/vibekit-review    →  deep code review (security, quality, UI) → GitHub Issues
-/vibekit-test      →  generate & maintain persistent test suites
-/vibekit-metrics   →  trend analysis across simulation cycles
-/vibekit-status    →  project state at a glance (read-only)
-```
-
----
-
 ## Install
-
-From your project root:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash
 ```
 
-Then commit so your whole team gets the commands:
-
-```bash
-git add .claude/commands && git commit -m "chore: add vibekit commands"
-```
-
-**Global install** (all projects on this machine):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash -s -- --global
-```
-
-**Requirements:** [Claude Code](https://claude.ai/code) · [GitHub CLI](https://cli.github.com) (`gh auth login`) · [Playwright MCP](#playwright-mcp-setup)
+**Requirements:** [Claude Code](https://claude.ai/code) + [GitHub CLI](https://cli.github.com) (`gh auth login`) + Node.js
 
 ---
 
-## Getting started
+## 3 commands to ship
 
-**Quick start (zero questions):**
-
-```
-/vibekit-setup --auto
-/vibekit-simulate
-```
-
-**Guided start:**
-
-```
-/vibekit-setup      # scans codebase, one prompt, generates PRODUCT.md + CLAUDE.md + session hook
-make dev            # start your dev server
-/vibekit-simulate   # runs indefinitely — Ctrl+C to stop
+```bash
+/vb-setup      # one-time: scans your codebase, sets up everything
+make dev       # start your app
+/vb-simulate   # bugs found, fixed, and tracked — runs until you stop it
 ```
 
-Each `/vibekit-simulate` cycle:
-1. Generates realistic customer personas from your `docs/PRODUCT.md`
-2. Runs UI journeys via Playwright
-3. Fixes every fixable bug inline and commits to `develop`
-4. Opens GitHub Issues for anything requiring architecture changes
-5. Audits every page on 9 UX dimensions, fixes inline
-6. Updates the Highlights Index with genuine product moments
+When you're ready:
 
-When arch issues accumulate: `/vibekit-build` — shows a plan, one approval, fully autonomous.
+```bash
+/vb-build      # implements architectural issues (one approval, then autonomous)
+/vb-launch     # quality gates → GitHub release → merge to main
+```
 
-Generate all docs: `/vibekit-pitch` — sales play, product brochure, API reference, architecture, pitch deck, and more.
-
-When ready to ship: `/vibekit-launch` — gates, GitHub release, merge to main.
-
-Review code quality: `/vibekit-review` — security, quality, and UI/accessibility audits with GitHub Issues.
-
-Generate tests: `/vibekit-test` — scans for untested code, generates tests, runs them.
-
-Track trends: `/vibekit-metrics` — bug velocity, severity trends, carry bug aging across cycles.
-
-Check project state anytime: `/vibekit-status`
+Zero-question mode: `/vb-setup --auto` skips all prompts.
 
 ---
 
-## Command flags
+## How it works
 
-### `/vibekit-setup`
+<p align="center">
+  <img src="docs/vibekit-loop.svg" alt="vibekit loop diagram" width="880"/>
+</p>
 
-| Flag | What it does |
-|------|-------------|
-| *(no flags)* | Scans codebase, asks one freeform prompt, generates PRODUCT.md + CLAUDE.md, installs session hook |
-| `--auto` | Zero questions — generates PRODUCT.md entirely from codebase scan. `[INFERRED]` markers on uncertain sections. |
-| `--refresh` | Re-scans codebase, diffs against existing PRODUCT.md, proposes updates for stale sections. |
+---
 
-### `/vibekit-pitch`
+## What it does
 
-| Flag | What it does |
-|------|-------------|
-| *(no flags)* | Generates all artifacts (sales + dev + investor + one-pager + product docs) |
-| `--sales` | GTM-focused: sales play, product brochure, demo sequence |
-| `--dev` | Developer docs: API reference, architecture diagram (Mermaid), onboarding guide |
-| `--investor` | Pitch deck as markdown slides |
-| `--one-pager` | Single-page product overview |
+**`/vb-simulate`** — the core loop. Runs indefinitely.
 
-### `/vibekit-review`
+- Generates real customer personas from your product spec
+- Runs Playwright journeys for each persona
+- Fixes every bug inline, commits to `develop`
+- Creates GitHub Issues for architectural gaps
+- Audits every page on 9 UX dimensions
+- Measures Core Web Vitals
+- Updates a Kanban board, milestones, and a Highlights Index — automatically
 
-| Flag | What it does |
-|------|-------------|
-| *(no flags)* | Runs all dimensions (security + quality + UI) |
-| `--security` | OWASP top 10, dependency CVEs, secrets in code, auth/authz |
-| `--quality` | CLAUDE.md convention adherence, dead code, complexity, duplication |
-| `--ui` | Accessibility (contrast, ARIA, keyboard nav), responsive issues |
-| `--pr N` | Scope review to changes in PR #N only |
-| `--fix` | Auto-fix fixable quality + UI issues, commit to develop |
+**`/vb-build`** — implements open `[Arch]` issues autonomously.
 
-### `/vibekit-test`
+- Shows a plan, gets one approval, then builds everything
+- Reads codebase → implements → verifies via Playwright → commits → closes issue
+- `--daemon` mode: watches for new issues and builds them continuously
 
-| Flag | What it does |
-|------|-------------|
-| *(no flags)* | Scans for untested code, generates all test types |
-| `--unit` | Unit tests for business logic (models, utils, helpers) |
-| `--integration` | Integration tests for API routes/handlers |
-| `--e2e` | End-to-end Playwright test files |
-| `--for "feature"` | Generate tests for a specific feature/module only |
-| `--coverage` | Run existing tests, report coverage, generate tests for gaps |
+**`/vb-launch`** — ships when quality gates pass.
 
-### `/vibekit-metrics`
+- Blocks on: open critical/high bugs, failing tests, UX score < 7/10, missing GTM docs
+- Auto-increments version, generates release notes, creates GitHub release
+- Closes milestone, opens next, merges `develop` → `main`
 
-| Flag | What it does |
-|------|-------------|
-| *(no flags)* | Full history analysis, prints to console |
-| `--cycle N` | Show metrics for a specific cycle |
-| `--compare N..M` | Compare two cycles side by side |
-| `--export` | Write `docs/METRICS.md` with Mermaid charts |
+**`/vb-review`** — deep code review + test generation.
+
+- Security (OWASP Top 10), code quality, accessibility — outputs GitHub Issues
+- `--test` generates unit/integration/e2e tests using your existing framework
+- `--fix` auto-fixes quality and UI findings
+- `--pr N` scopes review to a single PR
+
+**`/vb-pitch`** — analytics and documentation.
+
+- `--status` project health at a glance
+- `--metrics` trend analysis across simulation cycles
+- `--sales` / `--dev` / `--investor` generates all GTM and technical docs from real data
+
+---
+
+## Everything tracked in GitHub
+
+Every bug, every fix, every cycle — structured GitHub Issues with full traceability.
+
+| What | Where |
+|------|-------|
+| Bugs found and fixed | `[Bug]` issues — closed with commit SHA |
+| Architectural gaps | `[Arch]` issues — on Kanban board |
+| Simulation cycles | `[Sim] Cycle N` parent issues with tasklists |
+| Release progress | Milestones (`v0.1` → `v0.2` → ...) |
+| Board state | GitHub Projects — Sim Queue / Arch Backlog / Done |
+| CI | GitHub Actions — runs on every push to `develop` |
+| Session logs | Secret gists (private repos only) |
+| Highlights | Pinned GitHub Issue — updated every cycle |
 
 ---
 
 ## Works with any web app
 
-Next.js · React/Vite · Django · Rails · Laravel · anything with a browser-accessible UI and a GitHub remote.
+Next.js, React/Vite, Django, Rails, Laravel — anything with a browser UI and a GitHub remote.
 
 ---
 
-## Playwright MCP setup
-
-Add to `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
-    }
-  }
-}
-```
-
-Then: `npx playwright install chromium`
-
----
-
-## About
-
-**vibekit** is built and maintained by [ZySec AI](https://zysec.ai) — the internal development loop we use on our own products, open-sourced for the Claude Code community.
-
-Questions: [hello@zysec.ai](mailto:hello@zysec.ai) · [GitHub Issues](https://github.com/ZySec-AI/vibekit/issues)
-
----
-
-MIT © ZySec AI
+MIT  [ZySec AI](https://zysec.ai) | [hello@zysec.ai](mailto:hello@zysec.ai) | [Issues](https://github.com/ZySec-AI/vibekit/issues)

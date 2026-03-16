@@ -2,7 +2,7 @@
 # vibekit installer — https://github.com/ZySec-AI/vibekit
 # Usage: curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash
 #
-# Installs all 9 vibekit commands into .claude/commands/ in the current directory.
+# Installs all 6 vibekit commands into .claude/commands/ in the current directory.
 # Run this from your project root.
 
 set -e
@@ -39,7 +39,7 @@ mkdir -p "$DEST"
 echo "Installing to: $DEST"
 echo ""
 
-for cmd in vibekit-setup vibekit-simulate vibekit-build vibekit-launch vibekit-status vibekit-pitch vibekit-review vibekit-test vibekit-metrics; do
+for cmd in vb-setup vb-simulate vb-build vb-launch vb-review vb-pitch; do
   printf "  %-20s" "/$cmd"
   if curl -fsSL "$BASE/$cmd.md" -o "$DEST/$cmd.md"; then
     echo "✓"
@@ -52,7 +52,7 @@ done
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Done. 9 commands installed to: $DEST"
+echo "Done. 6 commands installed to: $DEST"
 echo ""
 echo "NEXT STEPS:"
 if [ "$DEST" != "$HOME/.claude/commands" ]; then
@@ -65,11 +65,11 @@ else
 fi
 echo ""
 echo "  Quick start (zero questions):"
-echo "       /vibekit-setup --auto && /vibekit-simulate"
+echo "       /vb-setup --auto && /vb-simulate"
 echo ""
 echo "  Guided start:"
-echo "       /vibekit-setup        ← one prompt to describe your product"
-echo "       /vibekit-simulate     ← find & fix issues"
+echo "       /vb-setup        ← one prompt to describe your product"
+echo "       /vb-simulate     ← find & fix issues"
 echo ""
 echo "  Requires: gh CLI (brew install gh) + gh auth login"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

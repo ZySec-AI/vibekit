@@ -1,6 +1,6 @@
 {
   "name": "vibekit",
-  "description": "Autonomous product development loop — /vibekit-setup /vibekit-simulate /vibekit-build /vibekit-pitch /vibekit-launch /vibekit-review /vibekit-test /vibekit-metrics /vibekit-status. Simulate customers, fix bugs, generate docs, review code, generate tests, track metrics, and ship. Built by ZySec AI.",
+  "description": "Autonomous product development loop — /vb-setup /vb-simulate /vb-build /vb-pitch /vb-launch /vb-review. Simulate customers, fix bugs, generate docs, review code, generate tests, track metrics, and ship. Built by ZySec AI.",
   "author": {
     "name": "ZySec AI",
     "email": "hello@zysec.ai",

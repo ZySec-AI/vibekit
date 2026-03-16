@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#6366f1"/>
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#94a3b8"/>
+    </marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="880" height="520" rx="12" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="440" y="38" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700" letter-spacing="0.5">vibekit — autonomous product development loop</text>
+  <text x="440" y="58" text-anchor="middle" fill="#94a3b8" font-size="12">simulated customers find bugs → Claude fixes them → everything tracked in GitHub</text>
+
+  <!-- ═══════════════ MAIN LOOP (top row) ═══════════════ -->
+
+  <!-- Setup box -->
+  <rect x="30" y="90" width="160" height="80" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="110" y="118" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">/vb-setup</text>
+  <text x="110" y="136" text-anchor="middle" fill="#cbd5e1" font-size="10">PRODUCT.md, CI,</text>
+  <text x="110" y="150" text-anchor="middle" fill="#cbd5e1" font-size="10">Kanban, labels, hooks</text>
+  <rect x="38" y="93" width="42" height="16" rx="3" fill="#6366f1" opacity="0.2"/>
+  <text x="59" y="104" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="600">RUN ONCE</text>
+
+  <!-- Arrow: setup → simulate -->
+  <line x1="190" y1="130" x2="232" y2="130" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Simulate box (highlighted - core) -->
+  <rect x="240" y="82" width="190" height="96" rx="8" fill="#1e1b4b" stroke="#6366f1" stroke-width="2" filter="url(#glow)"/>
+  <text x="335" y="110" text-anchor="middle" fill="#a78bfa" font-size="14" font-weight="700">/vb-simulate</text>
+  <text x="335" y="128" text-anchor="middle" fill="#e2e8f0" font-size="10">Playwright journeys</text>
+  <text x="335" y="142" text-anchor="middle" fill="#e2e8f0" font-size="10">9-dim UX audit</text>
+  <text x="335" y="156" text-anchor="middle" fill="#e2e8f0" font-size="10">Core Web Vitals</text>
+  <text x="335" y="170" text-anchor="middle" fill="#6ee7b7" font-size="9" font-weight="600">fixes bugs inline → develop</text>
+
+  <!-- Arrow: simulate → build -->
+  <line x1="430" y1="130" x2="472" y2="130" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="451" y="122" text-anchor="middle" fill="#94a3b8" font-size="8">[Arch]</text>
+  <text x="451" y="132" text-anchor="middle" fill="#94a3b8" font-size="8">issues</text>
+
+  <!-- Build box -->
+  <rect x="480" y="90" width="170" height="80" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="565" y="118" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">/vb-build</text>
+  <text x="565" y="136" text-anchor="middle" fill="#cbd5e1" font-size="10">1 approval → autonomous</text>
+  <text x="565" y="150" text-anchor="middle" fill="#cbd5e1" font-size="10">implement → verify → commit</text>
+  <rect x="488" y="93" width="48" height="16" rx="3" fill="#f59e0b" opacity="0.2"/>
+  <text x="512" y="104" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="600">--daemon</text>
+
+  <!-- Arrow: build → launch -->
+  <line x1="650" y1="130" x2="692" y2="130" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Launch box -->
+  <rect x="700" y="90" width="150" height="80" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="775" y="118" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">/vb-launch</text>
+  <text x="775" y="136" text-anchor="middle" fill="#cbd5e1" font-size="10">quality gates → release</text>
+  <text x="775" y="150" text-anchor="middle" fill="#cbd5e1" font-size="10">develop → main</text>
+  <rect x="708" y="93" width="30" height="16" rx="3" fill="#10b981" opacity="0.2"/>
+  <text x="723" y="104" text-anchor="middle" fill="#6ee7b7" font-size="8" font-weight="600">SHIP</text>
+
+  <!-- Loop-back arrow (simulate ↔ build cycle) -->
+  <path d="M 565 170 L 565 196 L 335 196 L 335 178" stroke="#6366f1" stroke-width="1.2" stroke-dasharray="5,3" fill="none" marker-end="url(#arrow)"/>
+  <text x="450" y="210" text-anchor="middle" fill="#818cf8" font-size="9" font-style="italic">repeat until clean</text>
+
+  <!-- ═══════════════ SUPPORTING COMMANDS (left side) ═══════════════ -->
+
+  <text x="50" y="250" fill="#64748b" font-size="11" font-weight="600" letter-spacing="1">SUPPORTING</text>
+
+  <!-- Review box -->
+  <rect x="30" y="265" width="170" height="72" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="115" y="290" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">/vb-review</text>
+  <text x="115" y="306" text-anchor="middle" fill="#cbd5e1" font-size="10">OWASP, quality, a11y</text>
+  <text x="115" y="320" text-anchor="middle" fill="#cbd5e1" font-size="10">--test generates tests</text>
+
+  <!-- Pitch box -->
+  <rect x="220" y="265" width="170" height="72" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="305" y="290" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">/vb-pitch</text>
+  <text x="305" y="306" text-anchor="middle" fill="#cbd5e1" font-size="10">--status / --metrics</text>
+  <text x="305" y="320" text-anchor="middle" fill="#cbd5e1" font-size="10">--sales / --dev / --investor</text>
+
+  <!-- ═══════════════ GITHUB LAYER (right side) ═══════════════ -->
+
+  <text x="500" y="250" fill="#64748b" font-size="11" font-weight="600" letter-spacing="1">GITHUB (AUTOMATIC)</text>
+
+  <!-- GitHub boxes -->
+  <rect x="480" y="265" width="375" height="110" rx="8" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- GitHub logo placeholder -->
+  <circle cx="505" cy="285" r="10" fill="#30363d"/>
+  <text x="505" y="289" text-anchor="middle" fill="#f0f6fc" font-size="11" font-weight="700">G</text>
+
+  <text x="525" y="289" fill="#f0f6fc" font-size="11" font-weight="600">Issues</text>
+  <text x="525" y="304" fill="#8b949e" font-size="9">[Bug] closed w/ SHA — [Arch] open for /vb-build</text>
+  <text x="525" y="318" fill="#8b949e" font-size="9">[Sim] Cycle N — parent with tasklist</text>
+
+  <line x1="490" y1="328" x2="845" y2="328" stroke="#21262d" stroke-width="1"/>
+
+  <text x="525" y="345" fill="#f0f6fc" font-size="11" font-weight="600">Projects Board</text>
+  <rect x="618" y="335" width="62" height="18" rx="3" fill="#1f6feb" opacity="0.3"/>
+  <text x="649" y="348" text-anchor="middle" fill="#58a6ff" font-size="8">Sim Queue</text>
+  <rect x="686" y="335" width="72" height="18" rx="3" fill="#e3b341" opacity="0.2"/>
+  <text x="722" y="348" text-anchor="middle" fill="#e3b341" font-size="8">Arch Backlog</text>
+  <rect x="764" y="335" width="42" height="18" rx="3" fill="#3fb950" opacity="0.2"/>
+  <text x="785" y="348" text-anchor="middle" fill="#3fb950" font-size="8">Done</text>
+
+  <line x1="490" y1="358" x2="845" y2="358" stroke="#21262d" stroke-width="1"/>
+
+  <text x="525" y="370" fill="#8b949e" font-size="9">Milestones (v0.1 → v0.2) — CI — Labels (14) — Highlights Index</text>
+
+  <!-- ═══════════════ DATA FLOW ARROWS ═══════════════ -->
+
+  <!-- simulate → GitHub -->
+  <path d="M 430 155 Q 460 155 460 240 Q 460 290 480 290" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow-gray)"/>
+
+  <!-- build → GitHub -->
+  <path d="M 565 170 Q 565 230 570 260 Q 570 270 530 285" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" fill="none"/>
+
+  <!-- review → GitHub -->
+  <path d="M 200 301 Q 420 301 460 295 Q 475 292 480 295" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow-gray)"/>
+
+  <!-- ═══════════════ YOUR APP (bottom) ═══════════════ -->
+
+  <rect x="30" y="400" width="820" height="64" rx="8" fill="#1a1a2e" stroke="#334155" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="440" y="425" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">YOUR WEB APP</text>
+  <text x="440" y="445" text-anchor="middle" fill="#64748b" font-size="10">Next.js / React / Django / Rails / Laravel — localhost via Playwright</text>
+  <text x="440" y="458" text-anchor="middle" fill="#475569" font-size="9">make dev</text>
+
+  <!-- Arrow: simulate → your app -->
+  <path d="M 310 178 L 310 400" stroke="#6366f1" stroke-width="1.2" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow)"/>
+  <text x="318" y="295" fill="#818cf8" font-size="8" transform="rotate(-90 318 295)">Playwright</text>
+
+  <!-- Arrow: build → your app -->
+  <path d="M 590 170 L 590 400" stroke="#6366f1" stroke-width="1.2" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow)"/>
+  <text x="598" y="295" fill="#818cf8" font-size="8" transform="rotate(-90 598 295)">verify</text>
+
+  <!-- ═══════════════ LEGEND ═══════════════ -->
+  <text x="40" y="498" fill="#475569" font-size="9">solid arrow = command flow</text>
+  <text x="220" y="498" fill="#475569" font-size="9">dashed arrow = data flow to GitHub</text>
+  <text x="440" y="498" fill="#475569" font-size="9">purple box = core loop</text>
+  <text x="600" y="498" fill="#475569" font-size="9">dark box = runs once or on-demand</text>
+
+  <!-- ═══════════════ ZYSEC AI LOGO (bottom-right) ═══════════════ -->
+  <g transform="translate(760, 480)">
+    <path d="M12 1 L21 4.5 L21 10.5 C21 15.5 17 20 12 22 C7 20 3 15.5 3 10.5 L3 4.5 Z" fill="#6366f1" opacity="0.8"/>
+    <path d="M9 10.5 L11 12.5 L15.5 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="26" y="14" fill="#94a3b8" font-size="11" font-weight="700" letter-spacing="0.3">ZySec</text>
+    <text x="70" y="14" fill="#64748b" font-size="11" font-weight="300" letter-spacing="0.3">AI</text>
+  </g>
+
+</svg>
