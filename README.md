@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop
 ## 3 commands to ship
 
 ```bash
-/vb-setup      # one-time: scans your codebase, sets up everything
+/vb-setup      # one-time: scans codebase, scaffolds logging + errors, sets up everything
 make dev       # start your app
 /vb-simulate   # bugs found, fixed, and tracked — runs until you stop it
 ```
@@ -61,10 +61,12 @@ When you're ready:
 
 **`/vb-build`** — the autonomous workhorse. One approval, then hands-off.
 
-- **Default**: full loop — build all arch issues → run simulate cycle → build new issues → repeat until launch gates pass
+- **Default**: full loop — build → test → simulate → watch → repeat. Runs indefinitely.
+- Picks up issues you create on GitHub (label them `vibekit`) — even from your phone
+- Runs your test suite between builds to catch regressions
 - Reads codebase → implements → verifies via Playwright → commits → closes issue
-- `--once` builds arch issues without running simulate
-- `--daemon` watches for new issues and builds them continuously
+- `--once` builds all open arch issues once, then exits
+- `--max-rounds N` safety limit (default: 20)
 
 **`/vb-launch`** — ships when quality gates pass.
 

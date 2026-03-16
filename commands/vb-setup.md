@@ -490,6 +490,354 @@ DEV MODE
 
 ---
 
+## Step 2.85 — Structured logging (OTel) + error handling (RFC 9457)
+
+Production-ready apps need structured observability and consistent error responses from day one. This step scaffolds both.
+
+### 2.85a — OpenTelemetry structured logging
+
+Detect existing logging setup:
+```bash
+# Node
+grep -rlE '(@opentelemetry|otel|pino|winston|bunyan)' --include="*.ts" --include="*.js" package.json 2>/dev/null | head -3
+# Python
+grep -rlE '(opentelemetry|structlog|python-json-logger)' --include="*.py" pyproject.toml requirements.txt 2>/dev/null | head -3
+```
+
+**If OTel or structured logging already configured:** print `Logging: structured logging detected — skipping.` and move on.
+
+**If no structured logging exists:** scaffold based on the detected stack.
+
+For **Node/pnpm** projects — install and configure `pino` with OTel-compatible format:
+
+```bash
+pnpm add pino pino-pretty
+```
+
+Write `src/lib/logger.ts` (or match existing project source dir):
+```typescript
+// Structured logger — OTel-compatible format
+// vibekit scaffolded — customize as needed
+import pino from 'pino'
+
+export const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  formatters: {
+    level(label) { return { severity: label.toUpperCase() } },
+  },
+  messageKey: 'message',
+  timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+  // OTel semantic conventions: service.name, service.version
+  base: {
+    'service.name': process.env.SERVICE_NAME || '[APP_NAME]',
+    'service.version': process.env.npm_package_version || '0.0.0',
+  },
+})
+
+// Request-scoped child logger (attach trace context)
+export function requestLogger(traceId?: string, spanId?: string) {
+  return logger.child({
+    ...(traceId && { 'trace.id': traceId }),
+    ...(spanId && { 'span.id': spanId }),
+  })
+}
+```
+
+For **Python/uv** projects — install and configure `structlog` with OTel-compatible format:
+
+```bash
+uv add structlog
+```
+
+Write `app/logging.py` (or match existing project layout):
+```python
+"""Structured logger — OTel-compatible format.
+vibekit scaffolded — customize as needed.
+"""
+import os, structlog
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(
+        int(os.environ.get("LOG_LEVEL", "20"))  # 20=INFO
+    ),
+)
+
+def get_logger(**kwargs):
+    return structlog.get_logger(
+        service_name=os.environ.get("SERVICE_NAME", "[APP_NAME]"),
+        **kwargs,
+    )
+```
+
+### 2.85b — RFC 9457 Problem Details error responses
+
+RFC 9457 defines a standard JSON format for HTTP API error responses. This ensures every error from the app is machine-readable and consistent.
+
+Detect existing error handling:
+```bash
+# Node
+grep -rlE '(problem.details|RFC.?9457|application/problem\+json|ProblemDetail)' --include="*.ts" --include="*.js" . 2>/dev/null | head -3
+# Python
+grep -rlE '(problem.details|RFC.?9457|application/problem\+json|ProblemDetail)' --include="*.py" . 2>/dev/null | head -3
+```
+
+**If RFC 9457 already implemented:** print `Error handling: RFC 9457 detected — skipping.` and move on.
+
+**If not found:** scaffold based on detected stack.
+
+For **Node/pnpm** (Next.js / Express) — write `src/lib/errors.ts`:
+```typescript
+// RFC 9457 Problem Details — standard error responses
+// vibekit scaffolded — customize error codes for your domain
+// Spec: https://www.rfc-editor.org/rfc/rfc9457
+
+export interface ProblemDetail {
+  type: string           // URI identifying the error type
+  title: string          // Short human-readable summary
+  status: number         // HTTP status code
+  detail?: string        // Human-readable explanation specific to this occurrence
+  instance?: string      // URI identifying the specific occurrence
+  [key: string]: unknown // Extension members
+}
+
+// ── Error codes — add your domain-specific codes here ──
+export const ErrorCodes = {
+  // Auth
+  UNAUTHORIZED:       { type: '/errors/unauthorized',       title: 'Unauthorized',        status: 401 },
+  FORBIDDEN:          { type: '/errors/forbidden',          title: 'Forbidden',            status: 403 },
+  // Validation
+  VALIDATION_ERROR:   { type: '/errors/validation',         title: 'Validation Error',     status: 422 },
+  // Resources
+  NOT_FOUND:          { type: '/errors/not-found',          title: 'Not Found',            status: 404 },
+  CONFLICT:           { type: '/errors/conflict',           title: 'Conflict',             status: 409 },
+  // Server
+  INTERNAL_ERROR:     { type: '/errors/internal',           title: 'Internal Server Error', status: 500 },
+  SERVICE_UNAVAILABLE:{ type: '/errors/service-unavailable',title: 'Service Unavailable',  status: 503 },
+} as const
+
+export function problemResponse(
+  code: keyof typeof ErrorCodes,
+  detail?: string,
+  extensions?: Record<string, unknown>
+): Response {
+  const base = ErrorCodes[code]
+  const body: ProblemDetail = {
+    ...base,
+    ...(detail && { detail }),
+    ...extensions,
+    instance: undefined, // set per-request if needed
+  }
+  return new Response(JSON.stringify(body), {
+    status: base.status,
+    headers: { 'Content-Type': 'application/problem+json' },
+  })
+}
+```
+
+For **Python/uv** (Django / FastAPI) — write `app/errors.py`:
+```python
+"""RFC 9457 Problem Details — standard error responses.
+vibekit scaffolded — customize error codes for your domain.
+Spec: https://www.rfc-editor.org/rfc/rfc9457
+"""
+from dataclasses import dataclass, field, asdict
+from typing import Any
+
+@dataclass
+class ProblemDetail:
+    type: str
+    title: str
+    status: int
+    detail: str | None = None
+    instance: str | None = None
+    extensions: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        d = {k: v for k, v in asdict(self).items() if v is not None and k != "extensions"}
+        d.update(self.extensions)
+        return d
+
+# ── Error codes — add your domain-specific codes here ──
+ERROR_CODES = {
+    "UNAUTHORIZED":        ProblemDetail("/errors/unauthorized",        "Unauthorized",         401),
+    "FORBIDDEN":           ProblemDetail("/errors/forbidden",           "Forbidden",            403),
+    "VALIDATION_ERROR":    ProblemDetail("/errors/validation",          "Validation Error",     422),
+    "NOT_FOUND":           ProblemDetail("/errors/not-found",           "Not Found",            404),
+    "CONFLICT":            ProblemDetail("/errors/conflict",            "Conflict",             409),
+    "INTERNAL_ERROR":      ProblemDetail("/errors/internal",            "Internal Server Error",500),
+    "SERVICE_UNAVAILABLE": ProblemDetail("/errors/service-unavailable", "Service Unavailable",  503),
+}
+
+def problem_response(code: str, detail: str | None = None, **extensions):
+    """Return a ProblemDetail dict for the given error code."""
+    base = ERROR_CODES[code]
+    return ProblemDetail(
+        type=base.type, title=base.title, status=base.status,
+        detail=detail, extensions=extensions,
+    ).to_dict()
+```
+
+### 2.85c — Wire logger into app entrypoint
+
+Find the app's main entrypoint and add a startup log line so the logger is immediately active:
+
+**Node/Next.js:** Scan for entrypoint:
+```bash
+# Next.js instrumentation hook (preferred)
+ls src/instrumentation.ts app/instrumentation.ts 2>/dev/null | head -1
+# Express/Node entrypoint
+grep -rlE '(createServer|app\.listen|export default app)' --include="*.ts" --include="*.js" src/ app/ . 2>/dev/null | head -1
+```
+
+- **If `instrumentation.ts` exists or is supported** (Next.js 13.4+): add logger import + startup log:
+  ```typescript
+  import { logger } from '@/lib/logger'
+  export function register() { logger.info('Application started') }
+  ```
+- **If Express/Node entrypoint found**: add `import { logger } from './lib/logger'` and `logger.info('Server started', { port })` near the listen call.
+- **If no entrypoint found**: skip wiring, print instructions.
+
+**Python:** Scan for entrypoint:
+```bash
+grep -rlE '(uvicorn\.run|app\.run|wsgi|asgi|manage\.py)' --include="*.py" . 2>/dev/null | head -1
+```
+
+- **If Django `manage.py` or `wsgi.py` found**: add `from app.logging import get_logger; logger = get_logger(); logger.info("Server started")` in the appropriate file.
+- **If FastAPI/Flask entrypoint found**: add logger import + startup log near app creation.
+- **If no entrypoint found**: skip wiring, print instructions.
+
+**Rules for wiring:**
+- Add only one import line and one log line — no other changes
+- If the file already imports a logger, skip — print "Logger already wired"
+- Never modify existing log statements
+
+### 2.85d — Wire into app error handler
+
+Scan the project for the existing global error handler:
+- **Next.js**: look for `app/error.tsx`, `pages/_error.tsx`, or API route error middleware
+- **Express**: look for `app.use((err, req, res, next)` pattern
+- **Django**: look for custom exception handler in `REST_FRAMEWORK` settings or `handler500`
+- **FastAPI**: look for `@app.exception_handler`
+- **Rails**: look for `rescue_from` in ApplicationController
+
+**If found:** add a comment pointing to the new `errors.ts` / `errors.py` and suggest wiring it in. Do NOT auto-modify the error handler — print instructions instead:
+```
+Error handler found at [path]:[line].
+Wire in RFC 9457 responses:
+  import { problemResponse, ErrorCodes } from '@/lib/errors'
+  // Then use: return problemResponse('NOT_FOUND', 'User not found')
+```
+
+**If no global error handler found:** print a note:
+```
+No global error handler detected.
+Error utilities written — use them when adding API routes:
+  import { problemResponse } from '@/lib/errors'
+```
+
+Print:
+```
+OBSERVABILITY
+══════════════════════════════════════
+  Logging:    structured (OTel format) → [src/lib/logger.ts | app/logging.py]
+  Logger:     [wired into entrypoint | manual — see import instructions]
+  Errors:     RFC 9457 Problem Details → [src/lib/errors.ts | app/errors.py]
+  Error codes: 7 base codes — extend in errors file
+══════════════════════════════════════
+```
+
+---
+
+## Step 2.9 — Smoke test (validate auth chain)
+
+If a dev login route was scaffolded or detected in Step 2.75, run a quick Playwright smoke test to validate the full auth chain works before `/vb-simulate` is run.
+
+**Skip if:** no dev login path set, or Playwright not installed, or no dev server currently running.
+
+```bash
+# Check prerequisites
+[ -z "$DEV_LOGIN_PATH" ] && echo "Smoke test: skipped (no dev login path)" && SMOKE_SKIP=true
+[ "$SMOKE_SKIP" != "true" ] && ! npx playwright --version 2>/dev/null && echo "Smoke test: skipped (Playwright not installed)" && SMOKE_SKIP=true
+```
+
+**If prerequisites met:** check if server is running, then write and run a minimal smoke test:
+
+```bash
+# Try common ports
+SMOKE_PORT=""
+for port in 3000 3001 5173 8000 8080; do
+  curl -sf "http://localhost:$port" >/dev/null 2>&1 && SMOKE_PORT=$port && break
+done
+[ -z "$SMOKE_PORT" ] && echo "Smoke test: skipped (no dev server running — start with 'make dev' then re-run)" && SMOKE_SKIP=true
+```
+
+Write `.vibekit/_pw_smoke.mjs`:
+```js
+import { chromium } from 'playwright';
+const port = process.env.SMOKE_PORT || '3000';
+const loginPath = process.env.DEV_LOGIN_PATH || '/dev-login';
+
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const page = await context.newPage();
+
+const results = { passed: [], failed: [] };
+const roles = (process.env.SMOKE_ROLES || 'admin,user').split(',');
+
+for (const role of roles) {
+  try {
+    const url = `http://localhost:${port}${loginPath}?role=${role.trim()}`;
+    const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: 10000 });
+    // After login, should redirect away from login page
+    const finalUrl = page.url();
+    const onLoginPage = finalUrl.includes(loginPath);
+    if (resp.status() < 400 && !onLoginPage) {
+      results.passed.push(role.trim());
+    } else {
+      results.failed.push({ role: role.trim(), status: resp.status(), url: finalUrl });
+    }
+  } catch (e) {
+    results.failed.push({ role: role.trim(), error: e.message });
+  }
+}
+
+await browser.close();
+console.log(JSON.stringify(results));
+```
+
+```bash
+SMOKE_ROLES=$(grep -oE '"User Roles"' docs/PRODUCT.md >/dev/null 2>&1 && \
+  grep -A20 "User Roles" docs/PRODUCT.md | grep -oE '^\| [A-Za-z]+' | sed 's/| //' | tr '\n' ',' || echo "admin,user")
+SMOKE_PORT=$SMOKE_PORT DEV_LOGIN_PATH=$DEV_LOGIN_PATH SMOKE_ROLES=$SMOKE_ROLES \
+  node .vibekit/_pw_smoke.mjs > .vibekit/_pw_smoke.json 2>/dev/null
+rm -f .vibekit/_pw_smoke.mjs
+```
+
+Read the JSON results:
+- **All passed:** print `Smoke test: PASS — [N] roles authenticated successfully`
+- **Some failed:** print warnings with details — do not block setup
+- Clean up: `rm -f .vibekit/_pw_smoke.json`
+
+```
+SMOKE TEST
+══════════════════════════════════════
+  Server:   http://localhost:[SMOKE_PORT]
+  Login:    [DEV_LOGIN_PATH]
+  Roles:    [list]
+  Result:   [PASS — N/N | PARTIAL — N/N passed | SKIPPED — reason]
+══════════════════════════════════════
+```
+
+---
+
 ## Step 3 — Session hook auto-install
 
 Create `.claude/hooks/session-start.sh`:
@@ -744,7 +1092,7 @@ gh label create "high"      --color "e11d48" --description "Severity: high"     
 gh label create "medium"    --color "f97316" --description "Severity: medium"                   2>/dev/null || true
 gh label create "low"       --color "84cc16" --description "Severity: low"                      2>/dev/null || true
 gh label create "review"    --color "6f42c1" --description "From a /vb-review audit"        2>/dev/null || true
-gh label create "vibekit"   --color "7057ff" --description "Trigger auto-implementation in daemon mode" 2>/dev/null || true
+gh label create "vibekit"   --color "7057ff" --description "Trigger auto-implementation in /vb-build"  2>/dev/null || true
 ```
 
 ---
@@ -961,6 +1309,10 @@ Makefile:       [created | already existed | skipped]
 Dev mode:       DEV_MODE=true in [.env.local | .env]
 Dev login:      [/dev-login scaffolded | already existed | skipped]
 Seed data:      [created | already existed]
+Logging:        structured (OTel format) → [path]
+Logger wired:   [yes — entrypoint | manual — see instructions]
+Error handling: RFC 9457 Problem Details → [path]
+Smoke test:     [PASS N/N roles | PARTIAL N/N | SKIPPED — reason]
 Session hook:   installed
 Session log hook: [installed — private repo | skipped — public repo]
 CI workflow:    .github/workflows/ci.yml

@@ -1,13 +1,21 @@
 ---
-description: Full autonomous loop — build arch issues, simulate, repeat until launch-ready. One approval, then hands-off.
-argument-hint: [--dry-run] [--issue N] [--once] [--daemon] [--interval N]
+description: Autonomous development loop — builds, simulates, watches for new issues, repeats until production-ready.
+argument-hint: [--dry-run] [--issue N] [--once] [--interval N] [--max-rounds N]
 model: sonnet
 allowed-tools: Agent, Bash(gh:*), Bash(git:*), Bash(pnpm:*), Bash(npx:*), Bash(uv:*), Read, Write, Edit, Glob, Grep
 ---
 
 # /vb-build
 
-You are a senior software engineer running the full autonomous development loop. By default: build all open `[Arch]` issues, run a `/vb-simulate` cycle to find new issues, build again, repeat — until launch gates pass or no new issues emerge. One approval at the start, then fully autonomous.
+You are a senior software engineer running the full autonomous development loop. By default you:
+
+1. Build all open `[Arch]` and `vibekit`-labeled issues
+2. Run the test suite to catch regressions
+3. Run a `/vb-simulate` cycle to find new issues
+4. **Poll for new issues** (created manually on GitHub, labeled `vibekit`, or new `arch` issues)
+5. Repeat until launch gates pass and no new issues arrive (max 20 rounds)
+
+One approval at the start, then fully autonomous. Ctrl+C to stop.
 
 Branch: always `develop`. Never create feature branches.
 
@@ -17,12 +25,12 @@ Branch: always `develop`. Never create feature branches.
 $ARGUMENTS
 ```
 
-- *(no flags)* — **default: full autonomous loop** — build → simulate → build → repeat until launch gates pass
+- *(no flags)* — **default: full autonomous loop with watch** — build → simulate → poll for new issues → repeat. Runs indefinitely.
 - `--dry-run` — show plan only, no implementation
-- `--issue N` — implement only issue #N (no simulate, no loop)
-- `--once` — build all open arch issues once, then stop (no simulate cycle, no loop)
-- `--daemon` — watch mode: poll for new `arch` and `vibekit`-labeled issues, implement automatically
-- `--interval N` — polling interval in minutes when in daemon mode (default: 5)
+- `--issue N` — implement only issue #N, then exit (no simulate, no loop)
+- `--once` — build all open arch issues once, then exit (no simulate cycle, no polling)
+- `--interval N` — polling interval in minutes between loop iterations (default: 5)
+- `--max-rounds N` — safety limit on autonomous rounds (default: 20). Stops after N rounds even if issues remain.
 
 ---
 
@@ -68,113 +76,51 @@ add_to_project() {
 }
 ```
 
-### Phase 0.5 — Daemon check
+### Phase 0.5 — Mode selection
 
 Parse flags from `$ARGUMENTS`:
 ```bash
-DAEMON_MODE=false
+MODE="default"
 INTERVAL=5
+MAX_ROUNDS=20
 BUILT=0
-PROCESSED=""
+SIM_CYCLES=0
+TESTS_RUN=0
+TESTS_FAILED=0
 
-echo "$ARGUMENTS" | grep -q '\-\-daemon' && DAEMON_MODE=true
+echo "$ARGUMENTS" | grep -q '\-\-once' && MODE="once"
+echo "$ARGUMENTS" | grep -q '\-\-dry-run' && MODE="dryrun"
+ISSUE_ARG=$(echo "$ARGUMENTS" | grep -oE '\-\-issue[[:space:]]+[0-9]+' | grep -oE '[0-9]+$')
+[ -n "$ISSUE_ARG" ] && MODE="single"
 INTERVAL_ARG=$(echo "$ARGUMENTS" | grep -oE '\-\-interval[[:space:]]+[0-9]+' | grep -oE '[0-9]+$')
 [ -n "$INTERVAL_ARG" ] && INTERVAL="$INTERVAL_ARG"
+MAX_ARG=$(echo "$ARGUMENTS" | grep -oE '\-\-max-rounds[[:space:]]+[0-9]+' | grep -oE '[0-9]+$')
+[ -n "$MAX_ARG" ] && MAX_ROUNDS="$MAX_ARG"
 ```
 
-**If `--daemon` mode:**
+### Detect test runner
 
-Print banner:
-```
-/vb-build DAEMON MODE
-════════════════════════════════════════════════════════
-Watching for: [arch] and [vibekit]-labeled issues
-Poll interval: [N] minutes
-Lock file:     .vibekit/build.lock
-Ctrl+C to stop
-════════════════════════════════════════════════════════
-```
-
-Install signal trap:
 ```bash
-trap 'rm -f .vibekit/build.lock; echo ""; echo "Daemon stopped. Built: $BUILT issues."; exit 0' INT TERM
+TEST_CMD=""
+if   grep -q '"vitest"' package.json 2>/dev/null; then TEST_CMD="pnpm exec vitest run"
+elif grep -q '"jest"'   package.json 2>/dev/null; then TEST_CMD="pnpm exec jest"
+elif grep -q '"test"'   package.json 2>/dev/null; then TEST_CMD="pnpm test"
+elif test -f pyproject.toml && grep -q "pytest" pyproject.toml 2>/dev/null; then TEST_CMD="uv run pytest"
+fi
 ```
 
-Enter poll loop:
-```bash
-while true; do
-  # Stale lock cleanup — remove if PID no longer running or is this process
-  if [ -f ".vibekit/build.lock" ]; then
-    LOCK_PID=$(cat .vibekit/build.lock 2>/dev/null || echo "")
-    if [ -n "$LOCK_PID" ]; then
-      kill -0 "$LOCK_PID" 2>/dev/null && [ "$LOCK_PID" != "$$" ] || rm -f .vibekit/build.lock
-    fi
-  fi
+**If default mode (no flags, or only `--interval`):**
 
-  # Skip if another build is running
-  if [ -f ".vibekit/build.lock" ]; then
-    sleep $((INTERVAL * 60))
-    continue
-  fi
-
-  # Fetch open arch + vibekit-labeled issues, deduplicate
-  ARCH=$(gh issue list --label "arch" --state open --limit 50 --json number,title \
-    --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo "")
-  TRIGGER=$(gh issue list --label "vibekit" --state open --limit 50 --json number,title \
-    --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo "")
-  ALL=$(printf '%s\n%s\n' "$ARCH" "$TRIGGER" | sort -u | grep -v '^$' || echo "")
-
-  # Filter issues already processed this session
-  NEW=""
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    NUM=$(echo "$line" | awk '{print $1}')
-    echo "$PROCESSED" | grep -qw "$NUM" || NEW="${NEW}${line}\n"
-  done <<< "$ALL"
-
-  if [ -z "$NEW" ]; then
-    echo "[$(date '+%H:%M')] Watching... next check in ${INTERVAL}m"
-    sleep $((INTERVAL * 60))
-    continue
-  fi
-
-  # Process each new issue using the standard Phase 2 flow
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    NUM=$(echo "$line" | awk '{print $1}')
-    echo $$ > .vibekit/build.lock
-
-    echo "[$(date '+%H:%M')] Building issue #${NUM}..."
-
-    # Run Phase 2a–2d for this issue (read → implement → verify → commit/close)
-    # (Same logic as --issue N path below)
-    # After successful close:
-    #   - If issue had "vibekit" label → remove it
-    gh issue view "$NUM" --json labels --jq '.labels[].name' 2>/dev/null \
-      | grep -q "^vibekit$" && gh issue edit "$NUM" --remove-label "vibekit" 2>/dev/null || true
-    #   - Move to Done on project board
-    ISSUE_URL=$(gh issue view "$NUM" --json url --jq '.url' 2>/dev/null || echo "")
-    [ -n "$ISSUE_URL" ] && add_to_project "$ISSUE_URL" "Done"
-
-    PROCESSED="$PROCESSED $NUM"
-    BUILT=$((BUILT + 1))
-    rm -f .vibekit/build.lock
-  done <<< "$(printf '%b' "$NEW")"
-
-  sleep $((INTERVAL * 60))
-done
-```
-
-**If default mode (no `--once`, `--issue`, `--daemon`, or `--dry-run`):**
-
-Full autonomous loop — build all arch issues, then simulate, then build again, repeat until launch-ready. This is the default behavior.
+This is the full autonomous loop — build, simulate, watch for new issues, repeat. One approval, then runs indefinitely until launch gates pass or Ctrl+C.
 
 Print banner:
 ```
 /vb-build
 ════════════════════════════════════════════════════════
-Full autonomous loop: build → simulate → build → repeat
-Stops when: launch gates pass OR no new issues after a cycle
+Autonomous loop: build → test → simulate → watch → repeat
+Poll interval:   [INTERVAL] minutes (for new issues)
+Max rounds:      [MAX_ROUNDS]
+Test runner:     [TEST_CMD or "none detected"]
 Ctrl+C to stop
 ════════════════════════════════════════════════════════
 ```
@@ -183,106 +129,205 @@ Ctrl+C to stop
 ```bash
 ARCH_COUNT=$(gh issue list --label "arch" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
 BUG_COUNT=$(gh issue list --label "bug" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
+VK_COUNT=$(gh issue list --label "vibekit" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
 ```
 
 ```
 Current state:
-  Open arch issues: [ARCH_COUNT]
-  Open bugs:        [BUG_COUNT]
+  Open arch issues:       [ARCH_COUNT]
+  Open bugs:              [BUG_COUNT]
+  vibekit-labeled issues: [VK_COUNT]
 
 This will autonomously:
-  1. Implement all open [Arch] issues
-  2. Run a /vb-simulate cycle (Playwright journeys + UX audit)
-  3. Implement any new [Arch] issues that emerged
-  4. Repeat until launch gates pass or no new issues found
+  1. Build all open [Arch] + [vibekit]-labeled issues
+  2. Run test suite after each build (catch regressions)
+  3. Run a /vb-simulate cycle (Playwright journeys + UX audit)
+  4. Poll GitHub every [INTERVAL]m for new issues (including ones you create on your phone)
+  5. Build new issues as they arrive
+  6. Repeat until launch gates pass and no new issues arrive (max [MAX_ROUNDS] rounds)
 
 Proceed? (yes/no)
 ```
 
-Wait for approval. After approval, enter the auto loop:
+Wait for approval. Install signal trap:
+```bash
+trap 'rm -f .vibekit/build.lock; echo ""; echo "/vb-build stopped. Built: $BUILT issues | $SIM_CYCLES sim cycles | $TESTS_RUN test runs."; exit 0' INT TERM
+```
+
+After approval, enter the main loop:
 
 ```
 AUTO_ROUND=0
-MAX_ROUNDS=10
+PROCESSED=""
 
 while [ $AUTO_ROUND -lt $MAX_ROUNDS ]; do
   AUTO_ROUND=$((AUTO_ROUND + 1))
   echo ""
   echo "═══════════════════════════════════════════"
-  echo "AUTO ROUND $AUTO_ROUND"
+  echo "ROUND $AUTO_ROUND / $MAX_ROUNDS"
   echo "═══════════════════════════════════════════"
 
-  # Step 1 — Build all open arch issues
+  # ── Step 1 — Build all open arch + vibekit-labeled issues ──
+  echo $$ > .vibekit/build.lock
+
   ARCH_ISSUES=$(gh issue list --label "arch" --state open --limit 50 --json number,title \
     --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo "")
+  VK_ISSUES=$(gh issue list --label "vibekit" --state open --limit 50 --json number,title \
+    --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo "")
+  ALL_ISSUES=$(printf '%s\n%s\n' "$ARCH_ISSUES" "$VK_ISSUES" | sort -u | grep -v '^$' || echo "")
 
-  if [ -n "$ARCH_ISSUES" ]; then
-    echo "Building $(echo "$ARCH_ISSUES" | wc -l | tr -d ' ') arch issues..."
-    # Run Phase 2a–2d for each open arch issue (same logic as standard build)
-    # For each: read → implement → verify via Playwright → commit → close → move to Done
+  # Filter already-processed — but only skip if issue is still closed
+  # (re-opened issues get picked up again)
+  BUILD_QUEUE=""
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    NUM=$(echo "$line" | awk '{print $1}')
+    if echo "$PROCESSED" | grep -qw "$NUM"; then
+      # Check if issue was re-opened — if so, allow re-processing
+      STATE=$(gh issue view "$NUM" --json state --jq '.state' 2>/dev/null || echo "OPEN")
+      [ "$STATE" = "OPEN" ] || continue
+    fi
+    BUILD_QUEUE="${BUILD_QUEUE}${line}\n"
+  done <<< "$ALL_ISSUES"
+
+  if [ -n "$BUILD_QUEUE" ]; then
+    QUEUE_COUNT=$(printf '%b' "$BUILD_QUEUE" | grep -c . || echo "0")
+    echo "Building $QUEUE_COUNT issues..."
+
+    # Run Phase 2a–2d for each issue (read → implement → verify → commit/close)
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      NUM=$(echo "$line" | awk '{print $1}')
+      echo "[$(date '+%H:%M')] Building issue #${NUM}..."
+
+      # Phase 2a–2d for this issue (same logic as --issue N path in Phase 2 below)
+      # After successful close:
+      #   - If issue had "vibekit" label → remove it
+      gh issue view "$NUM" --json labels --jq '.labels[].name' 2>/dev/null \
+        | grep -q "^vibekit$" && gh issue edit "$NUM" --remove-label "vibekit" 2>/dev/null || true
+      #   - Move to Done on project board
+      ISSUE_URL=$(gh issue view "$NUM" --json url --jq '.url' 2>/dev/null || echo "")
+      [ -n "$ISSUE_URL" ] && add_to_project "$ISSUE_URL" "Done"
+
+      PROCESSED="$PROCESSED $NUM"
+      BUILT=$((BUILT + 1))
+    done <<< "$(printf '%b' "$BUILD_QUEUE")"
   else
-    echo "No open arch issues."
+    echo "No new issues to build."
   fi
 
-  # Step 2 — Run a /vb-simulate cycle
-  echo "Running simulation cycle..."
-  # Execute the full /vb-simulate workflow inline:
-  #   - Generate personas from PRODUCT.md
-  #   - Run Playwright journeys (sequential)
-  #   - Fix all fixable bugs inline → commit to develop
-  #   - Create [Bug] issues (closed with SHA) and [Arch] issues (left open)
-  #   - Run 9-dimension UX audit across all pages
-  #   - Run Core Web Vitals scan
-  #   - Create [Sim] Cycle N parent issue
-  #   - Update Highlights Index issue
-  # Use the same Phase 1–6 logic from /vb-simulate
+  rm -f .vibekit/build.lock
 
-  # Step 3 — Check if we should continue
+  # ── Step 1b — Run test suite (catch regressions) ──
+  if [ -n "$TEST_CMD" ]; then
+    echo ""
+    echo "Running tests..."
+    TESTS_RUN=$((TESTS_RUN + 1))
+    TEST_OUTPUT=$($TEST_CMD 2>&1) || {
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+      echo "TESTS FAILED — attempting fix..."
+      # Read failing test output, identify the failure, fix the code or test
+      # Max 2 fix attempts. If still failing after 2 attempts:
+      #   - Create a [Bug] issue for the test failure
+      #   - Continue to simulate step (do not block the loop)
+      echo "$TEST_OUTPUT" | tail -20
+    }
+    [ $? -eq 0 ] && echo "Tests passed."
+  fi
+
+  # ── Step 2 — Run a /vb-simulate cycle ──
+  # On odd rounds: full simulate (journeys + UX audit)
+  # On even rounds: journey-only (faster feedback, skip full UX audit)
+  echo ""
+  SIM_CYCLES=$((SIM_CYCLES + 1))
+  if [ $((AUTO_ROUND % 2)) -eq 1 ]; then
+    echo "Running full simulation cycle (journeys + UX audit)..."
+    SIM_MODE="full"
+  else
+    echo "Running quick simulation cycle (journeys only)..."
+    SIM_MODE="journey-only"
+  fi
+
+  # Spawn a Simulate Agent to run the /vb-simulate workflow.
+  # The agent executes the full Phase 0–7 pipeline from /vb-simulate:
+  #   Phase 0: Preflight — detect server, login mechanism, cycle number
+  #   Phase 1: Customer journeys — generate personas, Playwright journeys, triage, fix bugs inline
+  #   Phase 2: UX audit (skip if SIM_MODE=journey-only) — 9 dimensions, 3 iterations
+  #   Phase 3: Performance audit (skip if SIM_MODE=journey-only)
+  #   Phase 4: Dedup
+  #   Phase 5: GitHub output — [Sim] Cycle N parent issue, Highlights Index update
+  #   Phase 6: GTM sync — update DEMO-SEQUENCE.md if highlights changed
+  #   Phase 7: Status
+  #
+  # Agent prompt:
+  #   "Run a /vb-simulate cycle. Mode: [full | journey-only].
+  #    Server: http://localhost:[port]. Login: [DEV_LOGIN_PATH or detected].
+  #    Read docs/PRODUCT.md for personas and roles.
+  #    Follow the full /vb-simulate Phase 0–7 workflow.
+  #    If mode is journey-only, skip Phase 2 (UX audit) and Phase 3 (performance).
+  #    Fix all fixable bugs inline, commit to develop, create GitHub Issues.
+  #    Return: bugs found, bugs fixed, arch issues created, cycle number."
+
+  # ── Step 3 — Check launch gates ──
   NEW_ARCH=$(gh issue list --label "arch" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "0")
   NEW_CRITICAL=$(gh issue list --label "bug,critical" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "0")
   NEW_HIGH=$(gh issue list --label "bug,high" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "0")
+  NEW_VK=$(gh issue list --label "vibekit" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "0")
 
   echo ""
   echo "Round $AUTO_ROUND complete:"
   echo "  Open arch:     $NEW_ARCH"
+  echo "  vibekit queue: $NEW_VK"
   echo "  Critical bugs: $NEW_CRITICAL"
   echo "  High bugs:     $NEW_HIGH"
 
-  # Exit conditions
-  if [ "$NEW_ARCH" -eq 0 ] && [ "$NEW_CRITICAL" -eq 0 ] && [ "$NEW_HIGH" -eq 0 ]; then
+  # Launch-ready: no open arch, no critical/high bugs, no vibekit queue
+  if [ "$NEW_ARCH" -eq 0 ] && [ "$NEW_CRITICAL" -eq 0 ] && [ "$NEW_HIGH" -eq 0 ] && [ "$NEW_VK" -eq 0 ]; then
     echo ""
-    echo "All clear — no open arch issues, no critical/high bugs."
-    echo "Launch gates likely pass. Run /vb-launch to ship."
-    break
+    echo "All clear — launch gates pass."
+    echo ""
+    echo "Watching for new issues every ${INTERVAL}m... (Ctrl+C to stop)"
   fi
 
-  if [ "$NEW_ARCH" -eq 0 ] && ([ "$NEW_CRITICAL" -gt 0 ] || [ "$NEW_HIGH" -gt 0 ]); then
-    echo ""
-    echo "No arch issues but critical/high bugs remain."
-    echo "These should be fixable — running another simulate cycle..."
-    # Continue loop — simulate will fix inline bugs
+  # ── Step 4 — Poll for new issues ──
+  echo "[$(date '+%H:%M')] Next check in ${INTERVAL}m..."
+  sleep $((INTERVAL * 60))
+
+  # Fetch new issues — if none arrived and gates already pass, keep watching
+  POLL_ARCH=$(gh issue list --label "arch" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "0")
+  POLL_VK=$(gh issue list --label "vibekit" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "0")
+  POLL_CRIT=$(gh issue list --label "bug,critical" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "0")
+  POLL_HIGH=$(gh issue list --label "bug,high" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "0")
+
+  TOTAL_OPEN=$((POLL_ARCH + POLL_VK + POLL_CRIT + POLL_HIGH))
+
+  if [ "$TOTAL_OPEN" -eq 0 ]; then
+    echo "[$(date '+%H:%M')] Still clean — no new issues. Watching..."
+    # Stay in loop — user may create an issue from their phone at any time
+    continue
   fi
 
-  # Safety: if this round produced no new arch issues AND no bugs were fixed,
-  # we're likely stuck
-  # (The loop tracks issue counts between rounds to detect no-progress)
+  echo "[$(date '+%H:%M')] New work detected — starting round $((AUTO_ROUND + 1))..."
+  # Loop continues → builds new issues → simulates → polls again
 done
 
+# Max rounds reached
 if [ $AUTO_ROUND -ge $MAX_ROUNDS ]; then
   echo ""
   echo "Reached max rounds ($MAX_ROUNDS). Stopping."
-  echo "Remaining: arch $NEW_ARCH | critical $NEW_CRITICAL | high $NEW_HIGH"
+  echo "Remaining: arch $NEW_ARCH | vibekit $NEW_VK | critical $NEW_CRITICAL | high $NEW_HIGH"
+  echo "Run /vb-build again to continue, or /vb-launch if ready."
 fi
 ```
 
-Print auto mode summary:
+Print summary (on Ctrl+C via trap, or on max rounds):
 ```
 /vb-build COMPLETE
 ════════════════════════════════════════════════════════
-Rounds completed:  [AUTO_ROUND]
-Arch implemented:  [total across all rounds]
-Bugs fixed inline: [total across all rounds]
-Sim cycles run:    [total]
+Rounds completed:  [AUTO_ROUND] / [MAX_ROUNDS]
+Arch implemented:  [BUILT]
+Sim cycles run:    [SIM_CYCLES]
+Test runs:         [TESTS_RUN] ([TESTS_FAILED] failures)
 
 Final state:
   Open arch:     [N]
@@ -290,13 +335,11 @@ Final state:
   High bugs:     [N]
 
 [If all clear: "Ready to ship — run /vb-launch"]
-[If issues remain: "Run /vb-simulate or fix manually"]
+[If issues remain: "Run /vb-build to continue or fix manually"]
 ════════════════════════════════════════════════════════
 ```
 
-Exit after the loop completes.
-
-**If `--once`:** proceed to Phase 1 below (build all arch issues once, no simulate cycle).
+**If `--once`:** proceed to Phase 1 below (build all arch issues once, no simulate cycle, no polling).
 
 ```bash
 gh issue list --label "arch" --state open --limit 50

@@ -6,9 +6,9 @@
     </linearGradient>
   </defs>
   <!-- Shield icon -->
-  <path d="M16 2 L28 7 L28 15 C28 22 22 27.5 16 30 C10 27.5 4 22 4 15 L4 7 Z" fill="url(#shield)" opacity="0.9"/>
+  <path d="M16 2 L28 7 L28 15 C28 22 22 27.5 16 30 C10 27.5 4 22 4 15 L4 7 Z" fill="url(#shield)"/>
   <path d="M12 15 L15 18 L21 12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <!-- Text -->
-  <text x="36" y="21" fill="#f8fafc" font-size="16" font-weight="700" letter-spacing="0.5">ZySec</text>
-  <text x="96" y="21" fill="#94a3b8" font-size="16" font-weight="300" letter-spacing="0.5">AI</text>
+  <text x="36" y="21" fill="#1e293b" font-size="16" font-weight="700" letter-spacing="0.5">ZySec</text>
+  <text x="96" y="21" fill="#64748b" font-size="16" font-weight="300" letter-spacing="0.5">AI</text>
 </svg>

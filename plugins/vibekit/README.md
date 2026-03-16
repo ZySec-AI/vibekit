@@ -32,9 +32,9 @@ Every bug is found by a simulated customer using your actual UI. Every fix is co
 
 | Command | What it does |
 |---------|-------------|
-| `/vb-setup` | First-time setup — scans codebase, generates `docs/PRODUCT.md` + `CLAUDE.md` + `Makefile`, installs session hook, creates GitHub labels |
+| `/vb-setup` | First-time setup — scans codebase, scaffolds logging (OTel) + errors (RFC 9457), generates `docs/PRODUCT.md` + `CLAUDE.md` + `Makefile`, runs smoke test, creates GitHub labels |
 | `/vb-simulate` | Runs customer journeys + 9-dimension UX audit, fixes all bugs inline, creates GitHub Issues |
-| `/vb-build` | Reads open `[Arch]` issues, shows a plan, gets one approval, implements everything autonomously |
+| `/vb-build` | Full autonomous loop: build → test → simulate → watch → repeat. One approval, runs indefinitely. |
 | `/vb-launch` | Checks release gates, creates GitHub release, merges to main |
 | `/vb-review` | Code review (security, quality, UI/accessibility) + test generation (`--test`), outputs GitHub Issues |
 | `/vb-pitch` | Docs, project status (`--status`), trend metrics (`--metrics`) |
@@ -100,8 +100,12 @@ This will:
 - Generate `docs/PRODUCT.md` (draft-and-confirm flow)
 - Generate `CLAUDE.md` if missing (project conventions)
 - Generate `Makefile` if missing (`dev`, `run`, `seed`, `clean` — auto-detected for your stack)
-- Install a session hook that shows issue state on Claude Code start
-- Create 14 GitHub labels in your repo (`bug`, `arch`, `carry`, `highlight`, `review`, `vibekit`, etc.)
+- Scaffold dev login route + seed credentials for Playwright automation
+- Scaffold structured logging (OTel format) + RFC 9457 error handling
+- Wire logger into app entrypoint
+- Run Playwright smoke test to validate auth chain
+- Install session hooks (start status + stop digest for private repos)
+- Create 14 GitHub labels, GitHub Projects board, milestone, CI workflow
 - Create a Highlights Index issue for tracking positive signals
 
 #### Step 2 — Start your dev server
@@ -136,7 +140,7 @@ It runs indefinitely (Ctrl+C to stop). Each cycle:
 /vb-build
 ```
 
-Shows you a prioritised list of open `[Arch]` issues with implementation plan. You say yes. It implements, verifies in the browser, commits, and closes each issue — no further input needed.
+Shows current state, you approve once, then it runs the full loop: builds all open arch issues, runs a simulate cycle, watches for new issues (including ones you create on GitHub), builds them, repeats. Runs indefinitely until launch gates pass or Ctrl+C. Use `--once` to build open issues once without the loop.
 
 #### Step 5 — Generate docs with `/vb-pitch`
 
@@ -324,7 +328,7 @@ You can update it any time. All commands re-read it each run. Use `/vb-setup --r
 | `wontfix` | white | Triaged out |
 | `v0.1` | blue | Launch milestone |
 | `review` | purple | From a `/vb-review` audit |
-| `vibekit` | purple | Trigger auto-implementation in `/vb-build --daemon` mode |
+| `vibekit` | purple | Trigger auto-implementation — `/vb-build` picks these up automatically |
 | `critical` / `high` / `medium` / `low` | red→green | Severity |
 
 ### Files written to `docs/`
