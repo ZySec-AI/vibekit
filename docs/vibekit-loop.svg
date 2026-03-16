@@ -50,7 +50,7 @@
   <text x="405" y="210" text-anchor="middle" fill="#c4b5fd" font-size="14" font-weight="700">/vb-build</text>
   <text x="405" y="226" text-anchor="middle" fill="#e2e8f0" font-size="9">1 approval, then autonomous</text>
   <text x="405" y="240" text-anchor="middle" fill="#e2e8f0" font-size="9">implement + verify + commit</text>
-  <text x="405" y="256" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">--daemon for continuous</text>
+  <text x="405" y="256" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">--auto full loop | --daemon</text>
 
   <!-- Arrow: build → launch -->
   <line x1="505" y1="225" x2="543" y2="225" stroke="#818cf8" stroke-width="1.5" marker-end="url(#arr)"/>

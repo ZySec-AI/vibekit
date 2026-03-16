@@ -37,7 +37,7 @@ When you're ready:
 /vb-launch     # quality gates → GitHub release → merge to main
 ```
 
-Zero-question mode: `/vb-setup --auto` skips all prompts.
+Or let it do everything: `/vb-build --auto` runs the full loop — build, simulate, build, repeat — until launch gates pass.
 
 ---
 
@@ -65,6 +65,7 @@ Zero-question mode: `/vb-setup --auto` skips all prompts.
 
 - Shows a plan, gets one approval, then builds everything
 - Reads codebase → implements → verifies via Playwright → commits → closes issue
+- `--auto` mode: full autonomous loop — build → simulate → build → repeat until launch-ready
 - `--daemon` mode: watches for new issues and builds them continuously
 
 **`/vb-launch`** — ships when quality gates pass.

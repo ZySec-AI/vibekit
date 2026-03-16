@@ -1,6 +1,6 @@
 ---
 description: Implements open [Arch] GitHub Issues. One approval — fully autonomous.
-argument-hint: [--dry-run] [--issue N] [--daemon] [--interval N]
+argument-hint: [--dry-run] [--issue N] [--auto] [--daemon] [--interval N]
 model: sonnet
 allowed-tools: Agent, Bash(gh:*), Bash(git:*), Bash(pnpm:*), Bash(npx:*), Bash(uv:*), Read, Write, Edit, Glob, Grep
 ---
@@ -19,6 +19,7 @@ $ARGUMENTS
 
 - `--dry-run` — show plan only, no implementation
 - `--issue N` — implement only issue #N
+- `--auto` — full autonomous loop: build all arch issues → run `/vb-simulate` cycle → build new arch issues → repeat until launch gates pass or no new issues found
 - `--daemon` — watch mode: poll for new `arch` and `vibekit`-labeled issues, implement automatically
 - `--interval N` — polling interval in minutes when in daemon mode (default: 5)
 
@@ -32,6 +33,12 @@ git remote get-url origin || { echo "ERROR: No git remote."; exit 1; }
 ```
 
 Read `docs/PRODUCT.md` before evaluating any issue. If missing → print "Run /vb-setup first." and exit.
+
+Load dev login path for Playwright verification:
+```bash
+DEV_LOGIN_PATH=""
+[ -f ".vibekit/repo.env" ] && DEV_LOGIN_PATH=$(grep "DEV_LOGIN_PATH" .vibekit/repo.env 2>/dev/null | cut -d= -f2)
+```
 
 ---
 
@@ -157,7 +164,138 @@ while true; do
 done
 ```
 
-**If NOT `--daemon`:** proceed to Phase 1 below.
+**If `--auto` mode:**
+
+Full autonomous loop — build all arch issues, then simulate, then build again, repeat until launch-ready.
+
+Print banner:
+```
+/vb-build AUTO MODE
+════════════════════════════════════════════════════════
+Full autonomous loop: build → simulate → build → repeat
+Stops when: launch gates pass OR no new issues after a cycle
+Ctrl+C to stop
+════════════════════════════════════════════════════════
+```
+
+**Get one approval before starting.** Show the current state:
+```bash
+ARCH_COUNT=$(gh issue list --label "arch" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
+BUG_COUNT=$(gh issue list --label "bug" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
+```
+
+```
+Current state:
+  Open arch issues: [ARCH_COUNT]
+  Open bugs:        [BUG_COUNT]
+
+This will autonomously:
+  1. Implement all open [Arch] issues
+  2. Run a /vb-simulate cycle (Playwright journeys + UX audit)
+  3. Implement any new [Arch] issues that emerged
+  4. Repeat until launch gates pass or no new issues found
+
+Proceed? (yes/no)
+```
+
+Wait for approval. After approval, enter the auto loop:
+
+```
+AUTO_ROUND=0
+MAX_ROUNDS=10
+
+while [ $AUTO_ROUND -lt $MAX_ROUNDS ]; do
+  AUTO_ROUND=$((AUTO_ROUND + 1))
+  echo ""
+  echo "═══════════════════════════════════════════"
+  echo "AUTO ROUND $AUTO_ROUND"
+  echo "═══════════════════════════════════════════"
+
+  # Step 1 — Build all open arch issues
+  ARCH_ISSUES=$(gh issue list --label "arch" --state open --limit 50 --json number,title \
+    --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo "")
+
+  if [ -n "$ARCH_ISSUES" ]; then
+    echo "Building $(echo "$ARCH_ISSUES" | wc -l | tr -d ' ') arch issues..."
+    # Run Phase 2a–2d for each open arch issue (same logic as standard build)
+    # For each: read → implement → verify via Playwright → commit → close → move to Done
+  else
+    echo "No open arch issues."
+  fi
+
+  # Step 2 — Run a /vb-simulate cycle
+  echo "Running simulation cycle..."
+  # Execute the full /vb-simulate workflow inline:
+  #   - Generate personas from PRODUCT.md
+  #   - Run Playwright journeys (sequential)
+  #   - Fix all fixable bugs inline → commit to develop
+  #   - Create [Bug] issues (closed with SHA) and [Arch] issues (left open)
+  #   - Run 9-dimension UX audit across all pages
+  #   - Run Core Web Vitals scan
+  #   - Create [Sim] Cycle N parent issue
+  #   - Update Highlights Index issue
+  # Use the same Phase 1–6 logic from /vb-simulate
+
+  # Step 3 — Check if we should continue
+  NEW_ARCH=$(gh issue list --label "arch" --state open --limit 50 --json number --jq 'length' 2>/dev/null || echo "0")
+  NEW_CRITICAL=$(gh issue list --label "bug,critical" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "0")
+  NEW_HIGH=$(gh issue list --label "bug,high" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "0")
+
+  echo ""
+  echo "Round $AUTO_ROUND complete:"
+  echo "  Open arch:     $NEW_ARCH"
+  echo "  Critical bugs: $NEW_CRITICAL"
+  echo "  High bugs:     $NEW_HIGH"
+
+  # Exit conditions
+  if [ "$NEW_ARCH" -eq 0 ] && [ "$NEW_CRITICAL" -eq 0 ] && [ "$NEW_HIGH" -eq 0 ]; then
+    echo ""
+    echo "All clear — no open arch issues, no critical/high bugs."
+    echo "Launch gates likely pass. Run /vb-launch to ship."
+    break
+  fi
+
+  if [ "$NEW_ARCH" -eq 0 ] && ([ "$NEW_CRITICAL" -gt 0 ] || [ "$NEW_HIGH" -gt 0 ]); then
+    echo ""
+    echo "No arch issues but critical/high bugs remain."
+    echo "These should be fixable — running another simulate cycle..."
+    # Continue loop — simulate will fix inline bugs
+  fi
+
+  # Safety: if this round produced no new arch issues AND no bugs were fixed,
+  # we're likely stuck
+  # (The loop tracks issue counts between rounds to detect no-progress)
+done
+
+if [ $AUTO_ROUND -ge $MAX_ROUNDS ]; then
+  echo ""
+  echo "Reached max rounds ($MAX_ROUNDS). Stopping."
+  echo "Remaining: arch $NEW_ARCH | critical $NEW_CRITICAL | high $NEW_HIGH"
+fi
+```
+
+Print auto mode summary:
+```
+/vb-build AUTO COMPLETE
+════════════════════════════════════════════════════════
+Rounds completed:  [AUTO_ROUND]
+Arch implemented:  [total across all rounds]
+Bugs fixed inline: [total across all rounds]
+Sim cycles run:    [total]
+
+Final state:
+  Open arch:     [N]
+  Critical bugs: [N]
+  High bugs:     [N]
+
+[If all clear: "Ready to ship — run /vb-launch"]
+[If issues remain: "Run /vb-simulate or fix manually"]
+════════════════════════════════════════════════════════
+```
+
+Exit after auto mode completes.
+
+**If NOT `--daemon` and NOT `--auto`:** proceed to Phase 1 below.
 
 ```bash
 gh issue list --label "arch" --state open --limit 50

@@ -109,10 +109,20 @@ If still no server: STOP, tell user to start it manually.
 
 ### Detect login mechanism
 
-Read the codebase to discover how to authenticate:
-- Dev/quick-login page (e.g. `/dev-login`, `/__dev/login`, `/auth/bypass`)
-- Standard form (look for login route + seed credentials in README/CLAUDE.md/scripts/)
-- OAuth
+**Priority order:**
+
+1. **Check `.vibekit/repo.env` for `DEV_LOGIN_PATH`** — if set by `/vb-setup`, use it directly. This is the fastest and most reliable path. Navigate to `DEV_LOGIN_PATH?role=[role]` to authenticate as any role.
+
+2. **Scan for existing dev login** — grep for `dev-login`, `dev_login`, `bypass`, `quick-login`, `__dev` in route files.
+
+3. **Standard form login** — look for login route + seed credentials in README/CLAUDE.md/scripts. Use credentials: `{role}@dev.local` / `dev123456` (the default vibekit seed credentials).
+
+4. **OAuth** — if the only option, note it and warn the user.
+
+```bash
+DEV_LOGIN_PATH=""
+[ -f ".vibekit/repo.env" ] && DEV_LOGIN_PATH=$(grep "DEV_LOGIN_PATH" .vibekit/repo.env 2>/dev/null | cut -d= -f2)
+```
 
 Record the exact login path and method — Playwright agents will use this.
 

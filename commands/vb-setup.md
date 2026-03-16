@@ -345,6 +345,151 @@ Print: `Makefile written — run 'make help' to see available targets.`
 
 ---
 
+## Step 2.75 — Dev mode + quick login
+
+vibekit's `/vb-simulate` and `/vb-build` need to authenticate as different user roles via Playwright. This step ensures reliable, automated login for all browser automation.
+
+### 2.75a — DEV_MODE env var
+
+Check for `.env` or `.env.local`:
+```bash
+ENV_FILE=""
+if   [ -f ".env.local" ]; then ENV_FILE=".env.local"
+elif [ -f ".env" ];       then ENV_FILE=".env"
+fi
+```
+
+**If env file exists:** check if `DEV_MODE` is already set:
+```bash
+grep -q "DEV_MODE" "$ENV_FILE" 2>/dev/null && echo "DEV_MODE already set" || echo "DEV_MODE=true" >> "$ENV_FILE"
+```
+
+**If no env file exists:** create `.env.local` (gitignored by default in most frameworks):
+```bash
+echo "DEV_MODE=true" > .env.local
+```
+
+Ensure `.env.local` is in `.gitignore`:
+```bash
+grep -q ".env.local" .gitignore 2>/dev/null || echo ".env.local" >> .gitignore
+```
+
+### 2.75b — Dev login route
+
+Scan the codebase to determine the auth stack and whether a dev login mechanism already exists:
+
+```bash
+# Check for existing dev login
+grep -rlE '(dev-login|dev_login|bypass|quick.?login|__dev)' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" --include="*.rb" . 2>/dev/null | head -5
+```
+
+**If dev login already exists:** print `Dev login: detected at [path] — skipping.` and move on.
+
+**If no dev login exists:** scaffold one based on the detected framework.
+
+Scan the project to detect the auth stack:
+- **NextAuth / Auth.js** — look for `next-auth`, `@auth/core` in dependencies, `auth.ts` / `[...nextauth]` route
+- **Supabase Auth** — look for `@supabase/supabase-js`, `@supabase/auth-helpers`
+- **Django** — look for `django.contrib.auth`, `LOGIN_URL` in settings
+- **Rails / Devise** — look for `devise` in Gemfile
+- **Custom JWT** — look for `jsonwebtoken`, `jose`, `PyJWT` in dependencies
+- **No auth** — no auth dependencies found
+
+**Scaffold a dev login route gated behind `DEV_MODE=true`:**
+
+For **Next.js** (App Router):
+Write `src/app/dev-login/page.tsx` (or `app/dev-login/page.tsx` — match existing app dir):
+```tsx
+// Dev-only login — only active when DEV_MODE=true
+// Used by vibekit Playwright automation for role-based testing
+import { redirect } from 'next/navigation'
+
+export default function DevLogin({ searchParams }: { searchParams: { role?: string } }) {
+  if (process.env.DEV_MODE !== 'true') redirect('/')
+  // Role options derived from seed data or PRODUCT.md roles
+  // Each button sets the session/cookie for that role and redirects to /
+  return (
+    <div style={{ padding: '2rem', fontFamily: 'system-ui' }}>
+      <h1>Dev Login</h1>
+      <p>Select a role to sign in as:</p>
+      {/* Render a button per role — roles detected from PRODUCT.md or auth config */}
+      {/* Each button calls a server action or API route that creates a session */}
+    </div>
+  )
+}
+```
+
+For **Next.js** (Pages Router): Write `pages/dev-login.tsx` with same pattern.
+
+For **Django**: Write a view at `accounts/views.py` and wire to `urlpatterns`:
+```python
+# Dev-only login — only active when DEV_MODE=true
+from django.conf import settings
+from django.contrib.auth import login
+from django.contrib.auth.models import User
+from django.http import HttpResponseRedirect, HttpResponseForbidden
+
+def dev_login(request):
+    if not getattr(settings, 'DEV_MODE', False):
+        return HttpResponseForbidden()
+    role = request.GET.get('role', 'user')
+    user = User.objects.filter(is_staff=(role == 'admin')).first()
+    if user:
+        login(request, user)
+    return HttpResponseRedirect('/')
+```
+
+For **Rails**: Write a controller action gated behind `ENV['DEV_MODE']`.
+
+For **React SPA (Vite/CRA)**: Write an API endpoint or a dev-only component that sets the auth token in localStorage.
+
+**The scaffolded route must:**
+1. Only work when `DEV_MODE=true` (hard gate — returns 403/redirect otherwise)
+2. Accept a `role` query parameter (`/dev-login?role=admin`, `/dev-login?role=user`)
+3. Create a valid session/token for that role using the app's actual auth mechanism
+4. Redirect to `/` after login
+5. Include a comment: `// vibekit dev login — remove before production`
+
+**Persist the dev login path for downstream commands:**
+```bash
+echo "DEV_LOGIN_PATH=/dev-login" >> .vibekit/repo.env
+```
+
+### 2.75c — Seed credentials (if no seed data)
+
+Check if seed data exists:
+```bash
+# Node
+grep -q '"seed"' package.json 2>/dev/null && SEED_EXISTS=true
+# Python
+grep -q 'seed' pyproject.toml 2>/dev/null && SEED_EXISTS=true
+# General
+ls **/seed*.{ts,js,py,rb} 2>/dev/null && SEED_EXISTS=true
+```
+
+**If no seed script exists:** generate minimal seed data with one user per role from `docs/PRODUCT.md`:
+- Read roles from PRODUCT.md
+- Generate a seed script that creates one user per role with predictable credentials:
+  - Email: `{role}@dev.local` (e.g. `admin@dev.local`, `user@dev.local`)
+  - Password: `dev123456`
+- Write seed script matching the project's ORM/DB pattern
+- Add `seed` script to `package.json` scripts (Node) or `pyproject.toml` (Python)
+
+**If seed script already exists:** print `Seed data: detected — skipping.` and move on.
+
+Print:
+```
+DEV MODE
+══════════════════════════════════════
+  DEV_MODE:     set in [.env.local | .env]
+  Dev login:    [scaffolded at /dev-login | already exists at [path] | skipped (no auth)]
+  Seed data:    [created | already exists]
+  Credentials:  {role}@dev.local / dev123456
+══════════════════════════════════════
+```
+
+---
+
 ## Step 3 — Session hook auto-install
 
 Create `.claude/hooks/session-start.sh`:
@@ -813,6 +958,9 @@ Branch:         develop
 PRODUCT.md:     [created | already existed | refreshed]
 CLAUDE.md:      [created | already existed | skipped]
 Makefile:       [created | already existed | skipped]
+Dev mode:       DEV_MODE=true in [.env.local | .env]
+Dev login:      [/dev-login scaffolded | already existed | skipped]
+Seed data:      [created | already existed]
 Session hook:   installed
 Session log hook: [installed — private repo | skipped — public repo]
 CI workflow:    .github/workflows/ci.yml
