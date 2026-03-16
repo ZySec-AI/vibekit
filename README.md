@@ -44,7 +44,7 @@ Zero-question mode: `/vb-setup --auto` skips all prompts.
 ## How it works
 
 <p align="center">
-  <img src="docs/vibekit-loop.svg" alt="vibekit loop diagram" width="880"/>
+  <img src="docs/vibekit-loop.svg" alt="vibekit loop diagram" width="800"/>
 </p>
 
 ---
