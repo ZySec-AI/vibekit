@@ -12,29 +12,45 @@ Built by [ZySec AI](https://zysec.ai).
 
 ---
 
-## Install
+## Quickstart
+
+### Step 1 — Install once per machine
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ZySec-AI/vibekit/refs/heads/develop/install.sh | bash
 ```
 
-**Requirements:** [Claude Code](https://claude.ai/code) + [GitHub CLI](https://cli.github.com) (`gh auth login`) + Node.js
+Installs 7 commands, session hooks, and the autonomous daemon into `~/.claude/`. Works across all your projects.
 
----
-
-## 3 commands to ship
+**Requirements:** [Claude Code](https://claude.ai/code) + [GitHub CLI](https://cli.github.com) + Node.js
 
 ```bash
-/vb-setup      # one-time: scans codebase, scaffolds logging + errors, sets up everything
-make dev       # start your app
-/vb-simulate   # bugs found, fixed, and tracked — runs until you stop it
+gh auth login   # if not already authenticated
 ```
 
-When you're ready:
+### Step 2 — Bootstrap each project (once per repo)
 
 ```bash
-/vb-build      # full autonomous loop: build → simulate → repeat until launch-ready
-/vb-launch     # quality gates → GitHub release → merge to main
+cd your-project
+/vb-setup --auto    # scans codebase, creates GitHub labels, scaffolds PRODUCT.md + CLAUDE.md
+```
+
+### Step 3 — Run the loop
+
+```bash
+make dev            # start your dev server
+/vb-simulate        # simulated customers find & fix bugs — runs until you stop it
+/vb-build           # implements architectural issues, re-simulates, repeats
+/vb-launch          # quality gates → GitHub release → merge to main
+```
+
+### Optional — Autonomous mode (no Claude session needed)
+
+```bash
+/vb-daemon install  # installs a background daemon that polls GitHub every 3 min
+                    # finds open issues → runs /vb-build --once → auto-launches when clean
+/vb-daemon status   # check daemon health
+/vb-daemon logs     # tail the daemon log
 ```
 
 ---
@@ -47,26 +63,49 @@ When you're ready:
 
 ---
 
-## What it does
+## What's installed
 
-**`/vb-simulate`** — the core loop. Runs indefinitely.
+| Location | What |
+|----------|------|
+| `~/.claude/commands/` | 7 slash commands (`/vb-setup`, `/vb-simulate`, `/vb-build`, `/vb-launch`, `/vb-review`, `/vb-pitch`, `/vb-daemon`) |
+| `~/.claude/hooks/session-start.sh` | Shows issue dashboard on every Claude session start |
+| `~/.claude/hooks/session-stop.sh` | Posts session transcript + plan + prompt to GitHub Issues |
+| `~/.vibekit/daemon.sh` | Autonomous polling daemon |
+| `~/.claude/settings.json` | Wires hooks into Claude Code (merges with existing settings) |
+
+Per-project state lives in `.vibekit/` (gitignored scratch files) and GitHub Issues.
+
+---
+
+## What each command does
+
+**`/vb-setup`** — one-time project bootstrap.
+
+- Scans codebase and generates `PRODUCT.md` (your product spec — Claude reads this before every task)
+- Creates GitHub labels: `bug`, `arch`, `carry`, `cycle`, `vibekit`, `highlight`, `critical`, `high`, `medium`, `low`
+- Scaffolds `CLAUDE.md`, `Makefile`, structured logging (OTel/pino), RFC 9457 error handling
+- Generates dev login shortcuts for Playwright
+- Creates Highlights Index issue (tracks positive signals across cycles)
+- Sets up GitHub Projects board, milestones, CI workflow
+
+**`/vb-simulate`** — the core bug-finding loop. Runs indefinitely.
 
 - Generates real customer personas from your product spec
 - Runs Playwright journeys for each persona
 - Fixes every bug inline, commits to `develop`
 - Creates GitHub Issues for architectural gaps
-- Audits every page on 9 UX dimensions
-- Measures Core Web Vitals
-- Updates a Kanban board, milestones, and a Highlights Index — automatically
+- Audits every page on 9 UX dimensions + Core Web Vitals
+- Updates Kanban board, milestones, and Highlights Index automatically
 
 **`/vb-build`** — the autonomous workhorse. One approval, then hands-off.
 
-- **Default**: full loop — build → test → simulate → watch → repeat. Runs indefinitely.
-- Picks up issues you create on GitHub (label them `vibekit`) — even from your phone
-- Runs your test suite between builds to catch regressions
-- Reads codebase → implements → verifies via Playwright → commits → closes issue
-- `--once` builds all open arch issues once, then exits
-- `--max-rounds N` safety limit (default: 20)
+- Default: full loop — build → test → simulate → watch → repeat
+- Picks up issues labeled `vibekit` (create from GitHub, phone, anywhere)
+- Auto-triages unlabeled issues (routes to `arch`, `bug`, or `carry`)
+- Read → implement → Playwright verify → commit → close — per issue
+- `--once` builds all open issues once then exits (used by daemon)
+- `--issue N` implements a single issue
+- Auto-triggers `/vb-launch` when zero open bugs remain
 
 **`/vb-launch`** — ships when quality gates pass.
 
@@ -76,33 +115,39 @@ When you're ready:
 
 **`/vb-review`** — deep code review + test generation.
 
-- Security (OWASP Top 10), code quality, accessibility — outputs GitHub Issues
-- `--test` generates unit/integration/e2e tests using your existing framework
+- Security (OWASP Top 10), code quality, deps health, accessibility — outputs GitHub Issues
+- `--test` generates unit/integration/e2e tests
 - `--fix` auto-fixes quality and UI findings
-- `--pr N` scopes review to a single PR
+- `--pr N` scopes to a single PR
 
 **`/vb-pitch`** — analytics and documentation.
 
 - `--status` project health at a glance
-- `--metrics` trend analysis across simulation cycles
-- `--sales` / `--dev` / `--investor` generates all GTM and technical docs from real data
+- `--metrics` trend analysis across cycles
+- `--sales` / `--dev` / `--investor` generates GTM and technical docs from real data
+
+**`/vb-daemon`** — autonomous background loop.
+
+- `install` — registers with launchd (macOS) or cron (Linux), polls every 3 minutes
+- `uninstall` / `start` / `stop` / `status` / `logs`
+- Survives reboots. No Claude session needed.
 
 ---
 
-## Everything tracked in GitHub
+## Full audit trail
 
-Every bug, every fix, every cycle — structured GitHub Issues with full traceability.
+Every session is captured automatically.
 
-| What | Where |
-|------|-------|
+| Signal | Where it lands |
+|--------|---------------|
 | Bugs found and fixed | `[Bug]` issues — closed with commit SHA |
 | Architectural gaps | `[Arch]` issues — on Kanban board |
-| Simulation cycles | `[Sim] Cycle N` parent issues with tasklists |
-| Release progress | Milestones (`v0.1` → `v0.2` → ...) |
-| Board state | GitHub Projects — Sim Queue / Arch Backlog / Done |
-| CI | GitHub Actions — runs on every push to `develop` |
-| Session logs | Secret gists (private repos only) |
-| Highlights | Pinned GitHub Issue — updated every cycle |
+| Simulation cycles | `[Sim] Cycle N` parent issues |
+| Session transcripts | Posted to open cycle issue on session end |
+| Plans (plan-mode) | Attached to touched issues as collapsible blocks |
+| User prompts | Posted as comments to touched issues |
+| Daemon runs | Summarized as cycle issue comments |
+| Release progress | GitHub milestones + releases |
 
 ---
 
@@ -112,4 +157,4 @@ Next.js, React/Vite, Django, Rails, Laravel — anything with a browser UI and a
 
 ---
 
-MIT  [ZySec AI](https://zysec.ai) | [hello@zysec.ai](mailto:hello@zysec.ai) | [Issues](https://github.com/ZySec-AI/vibekit/issues)
+MIT · [ZySec AI](https://zysec.ai) · [hello@zysec.ai](mailto:hello@zysec.ai) · [Issues](https://github.com/ZySec-AI/vibekit/issues)
