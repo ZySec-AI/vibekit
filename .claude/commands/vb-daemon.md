@@ -31,7 +31,10 @@ $ARGUMENTS
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 VIBEKIT_DIR="$PROJECT_ROOT/.vibekit"
 REPO_NAME="$(basename "$PROJECT_ROOT" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
-DAEMON_LABEL="com.vibekit.${REPO_NAME}.daemon"
+# Include git remote org/user to avoid collisions across projects with same folder name
+GH_REMOTE="$(git remote get-url origin 2>/dev/null | sed 's|.*github.com[:/]||;s|\.git$||;s|/|-|g' | tr '[:upper:]' '[:lower:]' || echo "")"
+DAEMON_ID="${GH_REMOTE:-$REPO_NAME}"
+DAEMON_LABEL="com.vibekit.${DAEMON_ID}.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/${DAEMON_LABEL}.plist"
 # Support both global (~/.vibekit/daemon.sh) and project-local (.vibekit/daemon.sh)
 if [ -f "$VIBEKIT_DIR/daemon.sh" ]; then
