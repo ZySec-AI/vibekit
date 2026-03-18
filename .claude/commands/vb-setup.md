@@ -1482,6 +1482,7 @@ Projects board: #[N] — vibekit — [repo]
 Milestone:      v0.1 (#[N])
 Labels:         14 confirmed (added: vibekit)
 Highlights Index: #[N]
+VIBEKIT.md:       written (daemon setup + command reference)
 
 THE LOOP:
   /vb-simulate   — find & fix issues → GitHub Issues
@@ -1501,3 +1502,78 @@ START:
   /vb-simulate   ← find & fix issues (runs indefinitely)
 ════════════════════════════════════════════════════════
 ```
+
+---
+
+## Step 6.5 — Write VIBEKIT.md
+
+Write `VIBEKIT.md` in the project root (overwrite if exists):
+
+```markdown
+# vibekit — [REPO_NAME]
+
+Autonomous development loop powered by [vibekit](https://github.com/ZySec-AI/vibekit).
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/vb-simulate` | Simulated customer journeys via Playwright — finds bugs, fixes inline, opens arch issues |
+| `/vb-build` | Implements arch issues autonomously — build → test → simulate → repeat |
+| `/vb-launch` | Quality gates → GitHub release → merge to main |
+| `/vb-review` | Security, code quality, accessibility audit → GitHub Issues |
+| `/vb-pitch` | Generates sales/dev/investor docs from real product data |
+| `/vb-daemon` | Manages the autonomous background loop |
+
+## Autonomous daemon
+
+The daemon polls GitHub every 3 minutes and runs `/vb-build --once` automatically — no terminal needed.
+
+```bash
+# Install (once per project)
+/vb-daemon install
+
+# Manage
+/vb-daemon status      # check if running
+/vb-daemon logs        # tail the log
+/vb-daemon stop        # pause
+/vb-daemon start       # resume
+/vb-daemon uninstall   # remove for this project
+```
+
+Each project gets its own daemon instance — identified by `com.vibekit.[org]-[repo].daemon`.
+To see all running daemons: `launchctl list | grep com.vibekit`
+
+## What gets tracked automatically
+
+| Signal | Where |
+|--------|-------|
+| Bugs found + fixed | `[Bug]` issues closed with commit SHA |
+| Arch gaps | `[Arch]` issues on Kanban board |
+| Simulation cycles | `[Sim] Cycle N` parent issues |
+| Session transcripts | Posted to open cycle issue on session end |
+| Plans (plan mode) | Attached to touched issues as collapsible blocks |
+| User prompts | Posted as comments to touched issues |
+| Daemon runs | Summarized as cycle issue comments |
+
+## Project state
+
+| File/Dir | Purpose |
+|----------|---------|
+| `docs/PRODUCT.md` | Product spec — Claude reads this before every task |
+| `CLAUDE.md` | Coding conventions — Claude follows these exactly |
+| `.vibekit/` | Scratch dir (gitignored) — logs, session state, daemon lock |
+| `.vibekit/daemon.log` | Autonomous loop log |
+| `.github/workflows/ci.yml` | CI — runs on every push to `develop` |
+
+## Loop
+
+```
+/vb-simulate → /vb-build → /vb-launch
+     ↑__________________|
+```
+
+Or fully autonomous: `/vb-daemon install` and walk away.
+```
+
+Print: `VIBEKIT.md: written`
