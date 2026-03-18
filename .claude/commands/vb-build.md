@@ -371,6 +371,29 @@ Tracks positive signals from /vb-simulate cycles. Updated automatically — do n
 <!-- /vb-simulate appends here -->"
 ```
 
+### Auto-triage unlabeled issues
+
+Find issues that have no `vibekit`, `arch`, `bug`, `carry`, or `sim` label and were created in the last 24 hours — these are likely user-created issues that need routing:
+
+```bash
+gh issue list --state open --limit 50 --json number,title,labels,createdAt   --jq '[.[] | select(.labels | length == 0)] | .[0:10]'
+```
+
+For each unlabeled issue: read its title and body, then apply the most appropriate label:
+- Implementation request / feature → `arch` + `vibekit`
+- Bug report → `bug` + `vibekit`
+- Question / discussion → `wontfix` (comment: "Use discussions for questions")
+- Unclear → `carry`
+
+```bash
+gh issue edit [N] --add-label "arch,vibekit"   # or "bug,vibekit" etc.
+```
+
+Print: `Triage: [N] issues labeled`
+
+---
+
+
 If no open `[Arch]` issues after bootstrap: print "No open [Arch] issues. Ready for /vb-simulate." and exit cleanly.
 
 ---
@@ -525,6 +548,26 @@ Files changed: [list]
 Open remaining: arch [N] | carry [N] | bug [N]
 Next: /vb-build (full loop) or /vb-simulate or /vb-launch (if clean)
 ════════════════════════════════════════════════════════
+```
+
+### Auto-launch gate (--once only)
+
+After printing the summary, check if the project is launch-ready:
+
+```bash
+OPEN_BUGS=$(gh issue list --label "bug" --state open --limit 1 --json number --jq 'length' 2>/dev/null || echo "1")
+OPEN_ARCH=$(gh issue list --label "arch" --state open --limit 1 --json number --jq 'length' 2>/dev/null || echo "1")
+```
+
+If `OPEN_BUGS=0` AND `OPEN_ARCH=0`:
+```
+All issues resolved. Auto-triggering /vb-launch...
+```
+Then run `/vb-launch`.
+
+If there are still open issues, print:
+```
+Remaining work detected — daemon will pick up next poll, or run /vb-build again.
 ```
 
 ---

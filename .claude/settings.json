@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh",
+            "timeout": 15,
+            "statusMessage": "Loading project state..."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",

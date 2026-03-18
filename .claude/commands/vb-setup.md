@@ -1326,6 +1326,89 @@ Print: `Milestone: v0.1 (#${MS_NUM})`
 
 ---
 
+## Step 4.8 — Daemon scaffold
+
+Write the autonomous polling daemon to `.vibekit/daemon.sh` (skip if already exists):
+
+```bash
+[ -f ".vibekit/daemon.sh" ] && echo "Daemon: already exists — skipping" && DAEMON_EXISTS=true || DAEMON_EXISTS=false
+```
+
+If `DAEMON_EXISTS=false`, write `.vibekit/daemon.sh`:
+
+```bash
+#!/bin/bash
+# vibekit autonomous daemon — polls for open issues and runs /vb-build --once
+set -uo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && git rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$PROJECT_ROOT" ] || exit 1
+cd "$PROJECT_ROOT"
+
+VIBEKIT_DIR="$PROJECT_ROOT/.vibekit"
+LOG="$VIBEKIT_DIR/daemon.log"
+LOCK="$VIBEKIT_DIR/daemon.lock"
+MAX_LOG_LINES=2000
+
+if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt "$MAX_LOG_LINES" ]; then
+  tail -500 "$LOG" > "${LOG}.tmp" && mv "${LOG}.tmp" "$LOG"
+fi
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
+
+if [ -f "$LOCK" ]; then
+  LOCK_PID=$(cat "$LOCK" 2>/dev/null || echo "")
+  if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+    log "Already running (pid $LOCK_PID) — skipping"
+    exit 0
+  fi
+  rm -f "$LOCK"
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
+if ! gh auth status &>/dev/null 2>&1; then
+  log "ERROR: gh not authenticated — daemon paused"
+  exit 1
+fi
+
+OPEN_COUNT=$(gh issue list --label "vibekit" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
+ARCH_COUNT=$(gh issue list --label "arch" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "0")
+TOTAL=$((OPEN_COUNT + ARCH_COUNT))
+
+log "Poll: vibekit=$OPEN_COUNT arch=$ARCH_COUNT total=$TOTAL"
+
+if [ "$TOTAL" -eq 0 ]; then
+  BUG_COUNT=$(gh issue list --label "bug" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "1")
+  if [ "$BUG_COUNT" -eq 0 ]; then
+    log "All clear — triggering /vb-launch"
+    claude --print "/vb-launch" >> "$LOG" 2>&1 || log "vb-launch failed (exit $?)"
+  fi
+  exit 0
+fi
+
+log "Found $TOTAL open issues — starting /vb-build --once"
+claude --print "/vb-build --once" >> "$LOG" 2>&1
+EXIT_CODE=$?
+log "Build complete (exit $EXIT_CODE)"
+
+CYCLE_ISSUE=$(gh issue list --label "cycle" --state open --limit 1 --json number --jq '.[0].number // empty' 2>/dev/null || true)
+if [ -n "$CYCLE_ISSUE" ]; then
+  REMAINING=$(gh issue list --label "vibekit" --state open --limit 100 --json number --jq 'length' 2>/dev/null || echo "?")
+  gh issue comment "$CYCLE_ISSUE" \
+    --body "## Daemon run — $(date '+%Y-%m-%d %H:%M')
+Started with $TOTAL open issues. Remaining: $REMAINING. Exit: $EXIT_CODE" 2>/dev/null || true
+fi
+```
+
+```bash
+chmod +x .vibekit/daemon.sh
+```
+
+Print: `Daemon scaffold: .vibekit/daemon.sh written — run /vb-daemon install to activate`
+
+---
+
 ## Step 5 — Highlights Index issue
 
 ```bash

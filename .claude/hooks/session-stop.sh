@@ -1,6 +1,6 @@
 #!/bin/bash
 # vibekit session transcript — zero LLM calls, pure jq + regex pipeline
-set -euo pipefail
+set -uo pipefail
 
 VIBEKIT_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.vibekit"
 [ -d "$VIBEKIT_DIR" ] || exit 0
@@ -54,8 +54,8 @@ fi
 
 # Step 5 — collect stats and referenced issue numbers
 TOOL_COUNT=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' "$SAFE_JSONL" 2>/dev/null | wc -l | tr -d ' ')
-COMMITS=$(jq -r 'select(.type=="user") | .message.content[]? | select(.type=="tool_result") | .content[]? | select(.type=="text") | .text' "$SAFE_JSONL" 2>/dev/null | grep -oE '\b[0-9a-f]{7,12}\b' | sort -u | tr '\n' ' ')
-TOUCHED_ISSUES=$(grep -oE '(#[0-9]+|issues/[0-9]+)' "$TRANSCRIPT" | grep -oE '[0-9]+' | sort -u)
+COMMITS=$(jq -r 'select(.type=="user") | .message.content[]? | select(.type=="tool_result") | .content[]? | select(.type=="text") | .text' "$SAFE_JSONL" 2>/dev/null | grep -oE '\b[0-9a-f]{7,12}\b' | sort -u | tr '\n' ' ' || true)
+TOUCHED_ISSUES=$(grep -oE '(#[0-9]+|issues/[0-9]+)' "$TRANSCRIPT" | grep -oE '[0-9]+' | sort -u || true)
 
 HEADER="## vibekit session — ${REPO_NAME} — ${SESSION_DATE}
 Tool calls: ${TOOL_COUNT} | Commits: ${COMMITS:-none}
@@ -100,7 +100,7 @@ fi
 for ISSUE_NUM in $TOUCHED_ISSUES; do
   [ "$ISSUE_NUM" = "$CYCLE_ISSUE" ] && continue
 
-  ISSUE_TURNS=$(grep -n "#${ISSUE_NUM}\b" "$TRANSCRIPT" | cut -d: -f1 | while read -r LINE_NUM; do
+  ISSUE_TURNS=$(grep -n "#${ISSUE_NUM}\b" "$TRANSCRIPT" 2>/dev/null | cut -d: -f1 | while read -r LINE_NUM; do
     START=$((LINE_NUM - 2)); [ "$START" -lt 1 ] && START=1
     END=$((LINE_NUM + 2))
     sed -n "${START},${END}p" "$TRANSCRIPT"
@@ -117,5 +117,72 @@ ${ISSUE_TURNS}
   gh issue comment "$ISSUE_NUM" --body "$ISSUE_BODY" 2>/dev/null || true
   echo "Session activity posted to issue #${ISSUE_NUM}"
 done
+
+# Step 8 — attach plan to touched issues and cycle issue
+LAST_PLAN_POSTED="$VIBEKIT_DIR/last-plan-posted.txt"
+PLAN_FILE=$(find "$HOME/.claude/plans" -name "*.md" -newer "$SAFE_JSONL" -not -name "*-agent-*" 2>/dev/null | head -1)
+# Fallback: most recent plan modified in last 4 hours
+if [ -z "$PLAN_FILE" ]; then
+  PLAN_FILE=$(find "$HOME/.claude/plans" -name "*.md" -not -name "*-agent-*" -mmin -240 2>/dev/null | sort | tail -1)
+fi
+
+# Idempotency: skip if this plan was already posted this session
+if [ -n "$PLAN_FILE" ] && [ -f "$LAST_PLAN_POSTED" ]; then
+  LAST_POSTED=$(cat "$LAST_PLAN_POSTED" 2>/dev/null || true)
+  [ "$LAST_POSTED" = "$PLAN_FILE" ] && PLAN_FILE=""
+fi
+
+if [ -n "$PLAN_FILE" ] && [ -f "$PLAN_FILE" ]; then
+  PLAN_NAME=$(basename "$PLAN_FILE" .md)
+  PLAN_BODY=$(cat "$PLAN_FILE")
+  PLAN_COMMENT="<details><summary>Plan: ${PLAN_NAME} — ${SESSION_DATE}</summary>
+
+${PLAN_BODY}
+</details>"
+
+  # Post to cycle issue
+  if [ -n "$CYCLE_ISSUE" ]; then
+    gh issue comment "$CYCLE_ISSUE" --body "## Session Plan
+
+${PLAN_COMMENT}" 2>/dev/null || true
+  fi
+
+  # Post to each touched issue
+  for ISSUE_NUM in $TOUCHED_ISSUES; do
+    [ "$ISSUE_NUM" = "$CYCLE_ISSUE" ] && continue
+    gh issue comment "$ISSUE_NUM" --body "## Plan used in this session
+
+${PLAN_COMMENT}" 2>/dev/null || true
+  done
+
+  echo "$PLAN_FILE" > "$LAST_PLAN_POSTED"
+  echo "Plan '${PLAN_NAME}' attached to issues: ${CYCLE_ISSUE} ${TOUCHED_ISSUES}"
+fi
+
+# Step 9 — post user prompt as comment to touched issues
+# Primary: last-prompt.txt written by session-start hook
+# Fallback: first **User:** line from transcript
+FIRST_USER_PROMPT=""
+if [ -f "$VIBEKIT_DIR/last-prompt.txt" ]; then
+  FIRST_USER_PROMPT=$(cat "$VIBEKIT_DIR/last-prompt.txt" | head -5 | tr '\n' ' ' || true)
+fi
+if [ -z "$FIRST_USER_PROMPT" ]; then
+  FIRST_USER_PROMPT=$(grep '^\*\*User:\*\*' "$TRANSCRIPT" | head -1 | sed 's/^\*\*User:\*\* //' || true)
+fi
+if [ -n "$FIRST_USER_PROMPT" ]; then
+  PROMPT_BODY="## User prompt — ${SESSION_DATE}
+
+> ${FIRST_USER_PROMPT}"
+
+  for ISSUE_NUM in $TOUCHED_ISSUES; do
+    gh issue comment "$ISSUE_NUM" --body "$PROMPT_BODY" 2>/dev/null || true
+  done
+
+  if [ -n "$CYCLE_ISSUE" ]; then
+    if ! echo "$TOUCHED_ISSUES" | grep -q "^${CYCLE_ISSUE}$" 2>/dev/null; then
+      gh issue comment "$CYCLE_ISSUE" --body "$PROMPT_BODY" 2>/dev/null || true
+    fi
+  fi
+fi
 
 rm -f "$TRANSCRIPT" "$SAFE_JSONL"
