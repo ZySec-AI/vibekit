@@ -48,11 +48,39 @@ log "Poll: vibekit=$OPEN_COUNT arch=$ARCH_COUNT total=$TOTAL"
 if [ "$TOTAL" -eq 0 ]; then
   log "No open issues — checking for launch gate"
 
-  # Check if we should auto-launch
   BUG_COUNT=$(gh issue list --label "bug" --state open --limit 10 --json number --jq 'length' 2>/dev/null || echo "1")
+  REPO_NAME="$(basename "$PROJECT_ROOT")"
+
   if [ "$BUG_COUNT" -eq 0 ]; then
     log "All clear — triggering /vb-launch"
-    claude --print "/vb-launch" >> "$LOG" 2>&1 || log "vb-launch failed (exit $?)"
+
+    # macOS notification
+    osascript -e "display notification \"All issues resolved — running /vb-launch\" with title \"vibekit: $REPO_NAME\" sound name \"Glass\"" 2>/dev/null || true
+
+    claude --print "/vb-launch" >> "$LOG" 2>&1
+    LAUNCH_EXIT=$?
+
+    if [ $LAUNCH_EXIT -eq 0 ]; then
+      log "Launch complete"
+      osascript -e "display notification \"Shipped! Check GitHub for the release.\" with title \"vibekit: $REPO_NAME ✓\" sound name \"Hero\"" 2>/dev/null || true
+    else
+      log "Launch failed (exit $LAUNCH_EXIT) — check logs"
+      osascript -e "display notification \"/vb-launch failed — run /vb-daemon logs\" with title \"vibekit: $REPO_NAME ✗\" sound name \"Basso\"" 2>/dev/null || true
+    fi
+  else
+    # Bugs open but no vibekit/arch tickets — idle, notify once per hour max
+    IDLE_STAMP="$VIBEKIT_DIR/.idle-notified"
+    NOTIFY=true
+    if [ -f "$IDLE_STAMP" ]; then
+      LAST=$(cat "$IDLE_STAMP" 2>/dev/null || echo 0)
+      NOW=$(date +%s)
+      [ $((NOW - LAST)) -lt 3600 ] && NOTIFY=false
+    fi
+    if [ "$NOTIFY" = "true" ]; then
+      log "Idle — $BUG_COUNT open bugs but no actionable tickets. Create issues labeled 'vibekit' or 'arch' to resume."
+      osascript -e "display notification \"$BUG_COUNT open bugs — label issues 'vibekit' to resume\" with title \"vibekit: $REPO_NAME — idle\"" 2>/dev/null || true
+      date +%s > "$IDLE_STAMP"
+    fi
   fi
   exit 0
 fi
