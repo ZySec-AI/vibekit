@@ -33,7 +33,14 @@ VIBEKIT_DIR="$PROJECT_ROOT/.vibekit"
 REPO_NAME="$(basename "$PROJECT_ROOT" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
 DAEMON_LABEL="com.vibekit.${REPO_NAME}.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/${DAEMON_LABEL}.plist"
-DAEMON_SCRIPT="$VIBEKIT_DIR/daemon.sh"
+# Support both global (~/.vibekit/daemon.sh) and project-local (.vibekit/daemon.sh)
+if [ -f "$VIBEKIT_DIR/daemon.sh" ]; then
+  DAEMON_SCRIPT="$VIBEKIT_DIR/daemon.sh"
+elif [ -f "$HOME/.vibekit/daemon.sh" ]; then
+  DAEMON_SCRIPT="$HOME/.vibekit/daemon.sh"
+else
+  DAEMON_SCRIPT="$VIBEKIT_DIR/daemon.sh"
+fi
 LOG_FILE="$VIBEKIT_DIR/daemon.log"
 PLATFORM="$(uname -s)"
 ```
